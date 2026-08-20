@@ -447,6 +447,29 @@ def test_significant_steps_survive_compaction():
     assert len(significant_narrations) == 4
 
 
+def test_keyframes_stay_consistent_after_compaction():
+    """Compaction and keyframing interact: compaction renumbers the step list,
+    and keyframes are assigned afterwards from the renumbered result. Exercise
+    both at once with a tight budget and a tight keyframe interval."""
+    rec = TraceRecorder(n_points=30, max_steps=16, keyframe_every=5)
+    for i in range(300):
+        rec.record("tick", f"step {i}", labels_delta={i % 30: i % 4})
+    trace = rec.finish()
+
+    assert trace["truncated"] is True
+
+    replayed = [-1] * 30
+    snapshots_seen = 0
+    for step in trace["steps"]:
+        for idx, label in step["labels_delta"].items():
+            replayed[int(idx)] = label
+        if step["labels_snapshot"] is not None:
+            snapshots_seen += 1
+            assert step["labels_snapshot"] == replayed
+    assert snapshots_seen > 0
+    assert replayed == rec.labels
+
+
 def test_step_indices_are_contiguous_after_compaction():
     rec = TraceRecorder(n_points=10, max_steps=8)
     for i in range(100):
@@ -798,7 +821,14 @@ def _split_counts(n_samples: int, groups: int) -> list[int]:
     return counts
 
 
-def _blobs(rng, n_samples, noise, centers, scales):
+def _blobs(
+    rng: np.random.Generator,
+    n_samples: int,
+    noise: float,
+    centers: list[tuple[float, float]],
+    scales: list[float],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Build Gaussian blobs at the given centres, returning (points, labels)."""
     counts = _split_counts(n_samples, len(centers))
     chunks, labels = [], []
     for k, (center, scale, count) in enumerate(zip(centers, scales, counts)):
@@ -924,7 +954,13 @@ git commit -m "feat: add synthetic dataset generators"
   - `davies_bouldin_score(X: np.ndarray, labels: np.ndarray) -> float | None`
   - `summarize(X: np.ndarray, labels: np.ndarray) -> dict` with keys `n_clusters`, `n_noise`, `cluster_sizes` (dict of str id to int), `silhouette`, `davies_bouldin`.
 
-**Design note:** noise points (label `-1`) are excluded from both scores but counted in `n_noise`. Both scores return `None` when fewer than two clusters survive, or when any surviving cluster has a single member (silhouette is undefined there) — `None` serialises to JSON `null` and the UI shows a dash rather than a misleading number.
+**Design note:** noise points (label `-1`) are excluded from both scores but counted in `n_noise`. `None` serialises to JSON `null`, and the UI shows a dash rather than a misleading number.
+
+The two scores differ on when they are undefined, and the difference is mathematical, not stylistic:
+
+- **Both** return `None` when fewer than two clusters survive — neither index means anything without at least two groups to compare.
+- **Silhouette additionally** returns `None` when any surviving cluster has a single member. Its `a(i)` term is the mean distance to *other* members of the same cluster, which does not exist for a lone point. (Some libraries return 0 for such points; that convention silently drags the mean toward zero, so this project reports "undefined" instead.)
+- **Davies-Bouldin does NOT** special-case singletons. A one-member cluster simply has spread 0, and the index stays well-defined and meaningful. Since DBSCAN routinely yields very small clusters, suppressing the score there would throw away a usable number for no reason.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1002,6 +1038,28 @@ def test_davies_bouldin_hand_computed():
 def test_davies_bouldin_is_none_with_one_cluster():
     X = np.array([[0.0], [1.0]])
     assert davies_bouldin_score(X, np.array([0, 0])) is None
+
+
+def test_davies_bouldin_is_defined_for_a_singleton_cluster():
+    # Unlike silhouette, DB has no undefined term for a lone point: its spread is
+    # simply 0. DBSCAN produces small clusters routinely, so suppressing the score
+    # here would discard a usable number. This test pins that deliberate difference.
+    X = np.array([[0.0], [1.0], [50.0]])
+    labels = np.array([0, 0, 1])
+    score = davies_bouldin_score(X, labels)
+    assert score is not None
+    assert np.isfinite(score)
+    # Cluster 0 spans [0, 1] (centroid 0.5, spread 0.5); cluster 1 is the lone
+    # point at 50 (spread 0). DB = (0.5 + 0) / |0.5 - 50| = 0.5 / 49.5
+    assert np.isclose(score, 0.5 / 49.5)
+
+
+def test_silhouette_and_davies_bouldin_disagree_on_singletons():
+    # The contract these two metrics deliberately do not share.
+    X = np.array([[0.0], [1.0], [50.0]])
+    labels = np.array([0, 0, 1])
+    assert silhouette_score(X, labels) is None
+    assert davies_bouldin_score(X, labels) is not None
 
 
 def test_summarize_counts_clusters_and_noise():
@@ -1604,10 +1662,19 @@ def dbscan(
                 visited[j] = True
                 if is_core[j]:
                     point_types[j] = "core"
+                    # Re-queue a neighbour when it is unvisited (it may be core and
+                    # extend the frontier) OR when it is visited but still
+                    # unassigned. That second case is the border point the outer
+                    # scan already passed over and provisionally called noise: this
+                    # cluster reaches it, so it must be able to claim it. Filtering
+                    # on `not visited[k]` alone strands those points as noise
+                    # forever, which the brute-force reference test catches.
+                    # Points already in a cluster are skipped — border points
+                    # belong to the first cluster that reaches them.
                     fresh = [
                         int(k)
                         for k in neighbourhoods[j]
-                        if not visited[k] and k not in in_queue
+                        if k not in in_queue and (not visited[k] or rec.labels[k] == -1)
                     ]
                     queue.extend(fresh)
                     in_queue.update(fresh)
@@ -2323,11 +2390,47 @@ def test_recovers_well_separated_blobs():
     assert agreement(result.labels, truth) > 0.95
 
 
-def test_handles_elongated_clusters_better_than_a_single_centroid():
-    X, truth = generate("anisotropic", n_samples=150, noise=0.02, random_seed=0)
-    multi = cure(X, n_clusters=3, n_representatives=8, shrink_factor=0.2, record_trace=False)
-    single = cure(X, n_clusters=3, n_representatives=1, shrink_factor=1.0, record_trace=False)
-    assert agreement(multi.labels, truth) >= agreement(single.labels, truth)
+def test_representatives_beat_a_single_centroid_on_non_convex_clusters():
+    """CURE's central claim, on the data where it actually holds.
+
+    With c=1 and alpha=1 every cluster collapses to its centroid. For two
+    interleaving crescents those centroids sit almost on top of each other, so
+    centroid-based merging cannot separate them. Ten representatives at low
+    shrink stay out on the cluster boundary and follow the shape instead.
+
+    Note this is deliberately NOT tested on `anisotropic`: those blobs are
+    well-separated, so a single centroid already handles them and extra
+    representatives only invite chaining. Multi-representative clustering is not
+    universally better — it is better on shapes a centroid cannot describe.
+    """
+    X, truth = generate("moons", n_samples=90, noise=0.02, random_seed=0)
+    centroid_like = cure(
+        X, n_clusters=2, n_representatives=1, shrink_factor=1.0, record_trace=False
+    )
+    with_representatives = cure(
+        X, n_clusters=2, n_representatives=10, shrink_factor=0.1, record_trace=False
+    )
+    assert agreement(centroid_like.labels, truth) < 0.8
+    assert agreement(with_representatives.labels, truth) > 0.95
+
+
+def test_higher_shrink_damps_chaining_on_elongated_clusters():
+    """The trade-off the shrink factor exists to control.
+
+    A low alpha leaves representatives out at the cluster edges, which is what
+    lets CURE follow a shape — but on elongated, closely-spaced clusters it also
+    invites the chaining that single-linkage suffers from, because two clusters'
+    nearest boundary points can be far closer than the clusters themselves are.
+    Raising alpha pulls the representatives inward and damps it.
+    """
+    X, truth = generate("anisotropic", n_samples=90, noise=0.02, random_seed=1)
+    chained = cure(
+        X, n_clusters=3, n_representatives=8, shrink_factor=0.2, record_trace=False
+    )
+    damped = cure(
+        X, n_clusters=3, n_representatives=8, shrink_factor=0.5, record_trace=False
+    )
+    assert agreement(damped.labels, truth) > agreement(chained.labels, truth)
 
 
 def test_produces_exactly_n_clusters():
