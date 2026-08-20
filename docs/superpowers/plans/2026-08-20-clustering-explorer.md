@@ -13,7 +13,9 @@
 ## Global Constraints
 
 - Python interpreter lives at `C:\Users\Eshunned\AppData\Local\Programs\Python\Python313\python.exe` (3.13.15). All backend commands run inside `backend/.venv`.
-- **No scikit-learn, no scipy, no pandas, no matplotlib.** Backend runtime dependencies are exactly: `fastapi`, `uvicorn[standard]`, `numpy`, `pydantic`. Dev adds `pytest`, `httpx`. Any task that reaches for another library is doing it wrong.
+- **No scikit-learn, no scipy, no pandas, no matplotlib.** Backend runtime dependencies are exactly: `fastapi`, `uvicorn[standard]`, `numpy`, `pydantic`, `python-multipart`. Dev adds `pytest`, `httpx`. Any task that reaches for another library is doing it wrong.
+
+  The point of this rule is that **every piece of clustering mathematics is written by hand** — the three algorithms, the quality metrics, and PCA. A library that would do that work for us is banned outright, and no argument justifies adding one. Plumbing is a different question: `python-multipart` is the form-data parser FastAPI's `UploadFile` requires (it is what `fastapi[standard]` bundles), it is ~30KB, and it touches nothing mathematical. It is on the list because the upload endpoint cannot exist without it, not as a precedent for relaxing the rule. If a future task wants a dependency, the test is simple: does it do arithmetic this project is supposed to demonstrate? If yes, the answer is no.
 - **No charting library on the frontend.** The scatter plot is hand-written canvas 2D; the CF-tree is hand-written SVG.
 - Label convention everywhere: `-1` = noise/unassigned, `0..k-1` = cluster ids.
 - All algorithms cluster in the data's full dimensionality. PCA projection is display-only and never feeds an algorithm.
@@ -126,6 +128,10 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "numpy>=2.1",
     "pydantic>=2.9",
+    # Required by FastAPI's UploadFile/File for the CSV/JSON upload endpoint.
+    # FastAPI checks for it at route-declaration time, so without it the whole
+    # app fails to import, not just that one route.
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
