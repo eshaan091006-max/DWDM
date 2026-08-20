@@ -683,7 +683,14 @@ def test_blobs_are_well_separated():
     points, labels = generate("blobs", n_samples=300, noise=0.02, random_seed=0)
     assert len(np.unique(labels)) == 3
     centroids = np.array([points[labels == k].mean(axis=0) for k in range(3)])
-    spreads = np.array([points[labels == k].std() for k in range(3)])
+    # Spread is the mean radial distance from a cluster's own centroid. Using
+    # `.std()` on the raw (n, 2) block would flatten x and y together, so a blob
+    # whose x-mean and y-mean differ would report the gap between its own axes
+    # as "spread" — a number several times its actual tightness.
+    spreads = np.array([
+        np.linalg.norm(points[labels == k] - centroids[k], axis=1).mean()
+        for k in range(3)
+    ])
     pairwise = [
         np.linalg.norm(centroids[i] - centroids[j])
         for i in range(3)
@@ -937,21 +944,29 @@ def test_silhouette_is_near_one_for_well_separated_clusters():
     assert score > 0.9
 
 
+# Points on a line: 0, 1 in cluster 0; 4, 5 in cluster 1. Every point's own
+# neighbour sits 1 away, so a = 1 throughout, but b differs by position:
+#   point 0 (outer): b = mean(4, 5) = 4.5  ->  s = 3.5 / 4.5
+#   point 1 (inner): b = mean(3, 4) = 3.5  ->  s = 2.5 / 3.5
+#   point 2 (inner): b = mean(3, 4) = 3.5  ->  s = 2.5 / 3.5
+#   point 3 (outer): b = mean(4, 5) = 4.5  ->  s = 3.5 / 4.5
+# The outer points score higher than the inner ones. Only the mirror pairs
+# agree, so the mean silhouette equals no single point's score.
+TINY_FIXTURE_SILHOUETTE = (3.5 / 4.5 + 2.5 / 3.5 + 2.5 / 3.5 + 3.5 / 4.5) / 4
+
+
 def test_silhouette_hand_computed_on_a_tiny_fixture():
-    # Points on a line: 0, 1 in cluster 0; 4, 5 in cluster 1.
     X = np.array([[0.0], [1.0], [4.0], [5.0]])
     labels = np.array([0, 0, 1, 1])
-    # For point 0: a = 1, b = mean(4, 5) = 4.5, s = (4.5 - 1) / 4.5
-    # By symmetry every point has the same silhouette value.
-    expected = (4.5 - 1.0) / 4.5
-    assert np.isclose(silhouette_score(X, labels), expected)
+    assert np.isclose(silhouette_score(X, labels), TINY_FIXTURE_SILHOUETTE)
 
 
 def test_silhouette_excludes_noise_points():
+    # The far-off noise point must not enter either the a or the b term, so the
+    # score has to come out identical to the fixture without it.
     X = np.array([[0.0], [1.0], [4.0], [5.0], [100.0]])
     labels = np.array([0, 0, 1, 1, -1])
-    expected = (4.5 - 1.0) / 4.5
-    assert np.isclose(silhouette_score(X, labels), expected)
+    assert np.isclose(silhouette_score(X, labels), TINY_FIXTURE_SILHOUETTE)
 
 
 def test_silhouette_is_none_with_one_cluster():
@@ -4180,9 +4195,64 @@ describe("clay primitives", () => {
     expect(onChange).toHaveBeenCalledWith(0.7);
   });
 
-  it("ClaySlider shows the current value", () => {
+  it("ClaySlider shows the current value in its editable field", () => {
     render(<ClaySlider label="eps" value={0.42} min={0} max={1} step={0.01} onChange={() => {}} />);
-    expect(screen.getByText("0.42")).toBeDefined();
+    expect((screen.getByLabelText("eps value") as HTMLInputElement).value).toBe("0.42");
+  });
+
+  it("ClaySlider accepts an exact typed value on blur", () => {
+    const onChange = vi.fn();
+    render(<ClaySlider label="eps" value={0.5} min={0} max={5} step={0.01} onChange={onChange} />);
+    const field = screen.getByLabelText("eps value");
+    fireEvent.change(field, { target: { value: "0.3" } });
+    fireEvent.blur(field, { target: { value: "0.3" } });
+    expect(onChange).toHaveBeenCalledWith(0.3);
+  });
+
+  it("ClaySlider commits a typed value on Enter", () => {
+    const onChange = vi.fn();
+    render(<ClaySlider label="eps" value={0.5} min={0} max={5} step={0.01} onChange={onChange} />);
+    const field = screen.getByLabelText("eps value");
+    fireEvent.change(field, { target: { value: "1.25" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledWith(1.25);
+  });
+
+  it("ClaySlider does not fire onChange for every keystroke while typing", () => {
+    const onChange = vi.fn();
+    render(<ClaySlider label="eps" value={0.5} min={0} max={5} step={0.01} onChange={onChange} />);
+    // "0." is not yet a value the user means; committing it mid-type would
+    // clobber the field out from under them.
+    fireEvent.change(screen.getByLabelText("eps value"), { target: { value: "0." } });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("ClaySlider clamps a typed value above the maximum", () => {
+    const onChange = vi.fn();
+    render(<ClaySlider label="eps" value={0.5} min={0} max={5} step={0.01} onChange={onChange} />);
+    const field = screen.getByLabelText("eps value");
+    fireEvent.change(field, { target: { value: "999" } });
+    fireEvent.blur(field, { target: { value: "999" } });
+    expect(onChange).toHaveBeenCalledWith(5);
+  });
+
+  it("ClaySlider clamps a typed value below the minimum", () => {
+    const onChange = vi.fn();
+    render(<ClaySlider label="minPts" value={5} min={1} max={50} step={1} onChange={onChange} />);
+    const field = screen.getByLabelText("minPts value");
+    fireEvent.change(field, { target: { value: "-4" } });
+    fireEvent.blur(field, { target: { value: "-4" } });
+    expect(onChange).toHaveBeenCalledWith(1);
+  });
+
+  it("ClaySlider reverts junk input instead of reporting NaN", () => {
+    const onChange = vi.fn();
+    render(<ClaySlider label="eps" value={0.5} min={0} max={5} step={0.01} onChange={onChange} />);
+    const field = screen.getByLabelText("eps value");
+    fireEvent.change(field, { target: { value: "abc" } });
+    fireEvent.blur(field, { target: { value: "abc" } });
+    expect(onChange).not.toHaveBeenCalled();
+    expect((field as HTMLInputElement).value).toBe("0.5");
   });
 
   it("ClayToggle flips its value", () => {
@@ -4339,7 +4409,16 @@ export function ClayButton({
 
 `frontend/src/clay/ClaySlider.tsx`:
 
+**Design note:** the value readout is an editable number input, not a label. A
+slider alone cannot hit an exact value like `ε = 0.30`, and exact values are what
+make a result reproducible. While the user is mid-type the field holds a local
+draft string (so `0.` and `-` do not get parsed and clobbered on every keystroke);
+the draft commits on blur or Enter, clamped to the declared range, and junk input
+reverts to the last good value.
+
 ```tsx
+import { useState } from "react";
+
 export function ClaySlider({
   label,
   value,
@@ -4361,23 +4440,49 @@ export function ClaySlider({
   disabled?: boolean;
   format?: (value: number) => string;
 }) {
+  const [draft, setDraft] = useState<string | null>(null);
   const shown = format ? format(value) : String(Number(value.toFixed(4)));
+
+  /** Commit a typed value: clamp into range, or revert if it is not a number. */
+  function commit(raw: string) {
+    setDraft(null);
+    const parsed = Number(raw);
+    if (raw.trim() === "" || Number.isNaN(parsed)) return;
+    onChange(Math.min(max, Math.max(min, parsed)));
+  }
+
   return (
     <label className="block mb-4" title={help}>
       <span className="flex items-baseline justify-between mb-1.5">
         <span className="text-xs font-bold" style={{ color: "var(--clay-text)" }}>
           {label}
         </span>
-        <span
-          className="text-xs font-mono px-2 py-0.5"
+        <input
+          aria-label={`${label} value`}
+          type="number"
+          inputMode="decimal"
+          min={min}
+          max={max}
+          step={step}
+          disabled={disabled}
+          value={draft ?? shown}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={(event) => commit(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              commit((event.target as HTMLInputElement).value);
+            }
+          }}
+          className="text-xs font-mono px-2 py-0.5 w-20 text-right"
           style={{
             color: "var(--clay-accent)",
             background: "var(--clay-surface-sunken)",
+            border: "none",
             borderRadius: "8px",
+            boxShadow: "var(--clay-shadow-sunken)",
           }}
-        >
-          {shown}
-        </span>
+        />
       </span>
       <input
         aria-label={label}
@@ -5054,6 +5159,7 @@ export function ScatterCanvas(props: {
   onMovePoint?: (index: number, point: [number, number]) => void;
   onRemovePoint?: (index: number) => void;
   height?: number;
+  caption?: string;                    // drawn onto the canvas, so PNG exports carry it
 }): JSX.Element;
 ```
 
@@ -5309,6 +5415,7 @@ export function ScatterCanvas({
   onMovePoint,
   onRemovePoint,
   height = 520,
+  caption,
 }: {
   points: number[][];
   labels: number[];
@@ -5319,6 +5426,7 @@ export function ScatterCanvas({
   onMovePoint?: (index: number, point: [number, number]) => void;
   onRemovePoint?: (index: number) => void;
   height?: number;
+  caption?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -7318,7 +7426,7 @@ export function NarrationLog(props: { steps: TraceStep[]; playhead: number }): J
 ```ts
 import { describe, expect, it } from "vitest";
 
-import { formatMetric, formatMs, formatPercent } from "./format";
+import { formatMetric, formatMs, formatParams, formatPercent } from "./format";
 
 describe("formatMetric", () => {
   it("renders an em dash for null", () => {
@@ -7361,6 +7469,44 @@ describe("formatPercent", () => {
     expect(formatPercent(0.723)).toBe("72%");
   });
 });
+
+describe("formatParams", () => {
+  it("renders DBSCAN parameters with their conventional symbols", () => {
+    expect(formatParams({ eps: 0.5, min_pts: 5 })).toBe("ε = 0.5  ·  minPts = 5");
+  });
+
+  it("renders BIRCH parameters", () => {
+    expect(formatParams({ threshold: 0.5, branching_factor: 50, n_clusters: 3 })).toBe(
+      "T = 0.5  ·  B = 50  ·  k = 3",
+    );
+  });
+
+  it("renders CURE parameters", () => {
+    expect(formatParams({ n_clusters: 3, n_representatives: 5, shrink_factor: 0.2 })).toBe(
+      "k = 3  ·  c = 5  ·  α = 0.2",
+    );
+  });
+
+  it("omits parameters that were left unset", () => {
+    expect(formatParams({ threshold: 0.5, n_clusters: null })).toBe("T = 0.5");
+  });
+
+  it("keeps string parameters as-is", () => {
+    expect(formatParams({ metric: "manhattan" })).toBe("metric = manhattan");
+  });
+
+  it("falls back to the raw key for an unknown parameter", () => {
+    expect(formatParams({ mystery: 7 })).toBe("mystery = 7");
+  });
+
+  it("renders an empty string for no parameters", () => {
+    expect(formatParams({})).toBe("");
+  });
+
+  it("trims trailing zeros rather than padding", () => {
+    expect(formatParams({ eps: 0.3 })).toBe("ε = 0.3");
+  });
+});
 ```
 
 - [ ] **Step 2: Run to verify it fails**
@@ -7383,6 +7529,40 @@ export function formatMs(ms: number): string {
 
 export function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`;
+}
+
+/**
+ * Display names for algorithm parameters, using the symbols the literature and
+ * most course notes use, so what the UI shows matches what a marker expects.
+ */
+const PARAM_LABELS: Record<string, string> = {
+  eps: "ε",
+  min_pts: "minPts",
+  metric: "metric",
+  threshold: "T",
+  branching_factor: "B",
+  n_clusters: "k",
+  n_representatives: "c",
+  shrink_factor: "α",
+  sample_size: "sample",
+  random_seed: "seed",
+};
+
+/**
+ * The parameters a result was actually produced with, as a single readable line.
+ *
+ * This reads from `params_used` on the response — the values the backend really
+ * ran with — not from the slider state, which the user may have moved since.
+ */
+export function formatParams(params: Record<string, unknown>): string {
+  return Object.entries(params)
+    .filter(([, value]) => value !== null && value !== undefined)
+    .map(([key, value]) => {
+      const label = PARAM_LABELS[key] ?? key;
+      const shown = typeof value === "number" ? Number(value.toFixed(4)) : String(value);
+      return `${label} = ${shown}`;
+    })
+    .join("  ·  ");
 }
 ```
 
@@ -7443,6 +7623,26 @@ export function MetricsPanel({ result }: { result: ClusterResponse | null }) {
 
   return (
     <ClayCard title="Quality" subtitle={`${result.algorithm.toUpperCase()} · ${formatMs(result.runtime_ms)}`}>
+      {/* The parameters this result was actually produced with — read from
+          params_used, not from the sliders, which the user may have since moved. */}
+      <div
+        className="px-3 py-2 mb-4"
+        style={{
+          background: "var(--clay-accent-soft)",
+          borderRadius: "var(--clay-radius-sm)",
+        }}
+      >
+        <div
+          className="text-[10px] font-bold uppercase tracking-wide mb-0.5"
+          style={{ color: "var(--clay-text-faint)" }}
+        >
+          Parameters used
+        </div>
+        <div className="text-xs font-mono font-bold" style={{ color: "var(--clay-accent)" }}>
+          {formatParams(result.params_used) || "defaults"}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-2 mb-4">
         <Stat label="Clusters" value={String(metrics.n_clusters)} />
         <Stat
