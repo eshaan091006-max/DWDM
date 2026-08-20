@@ -58,7 +58,11 @@ def cure(
     record_trace: bool = True,
     max_steps: int = 5000,
 ) -> ClusterResult:
-    """Cluster X by hierarchically merging clusters of representative points."""
+    """Cluster X by hierarchically merging clusters of representative points.
+
+    Returns a ClusterResult whose extras carry `representatives` (cluster id to
+    its shrunken representative coordinates), `sample_indices`, and `n_sampled`.
+    """
     X = np.asarray(X, dtype=np.float64)
     if X.ndim != 2 or X.shape[0] == 0:
         raise ValueError("X must be a non-empty 2-D array of shape (n, d)")

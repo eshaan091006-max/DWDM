@@ -127,6 +127,64 @@ def test_birch_assigns_every_point():
     assert -1 not in result.labels
 
 
+def test_cf_tree_is_byte_identical_across_repeated_runs():
+    """Node ids must be numbered per tree, not from a module-level counter.
+
+    The backend is a long-lived uvicorn server, so a process-global counter would
+    give two identical requests different node ids — `extras["cf_tree"]` and every
+    trace `path`/`split_nodes` payload would differ between runs even though the
+    clustering is identical. Comparing `.labels` alone would not catch it.
+    """
+    X, _ = generate("blobs", n_samples=90, random_seed=0)
+    first = birch(X, threshold=0.4, branching_factor=3, n_clusters=3, record_trace=False)
+    second = birch(X, threshold=0.4, branching_factor=3, n_clusters=3, record_trace=False)
+    assert first.labels == second.labels
+    assert first.extras["cf_tree"] == second.extras["cf_tree"]
+
+
+def test_non_leaf_entries_summarise_their_descendant_leaves():
+    """Ancestor CFs must stay in sync with the leaves beneath them.
+
+    `_update_path_statistics` and `_split`'s `copy_stats_from` calls jointly
+    maintain this, and the arrangement is subtle: after a split the path walk
+    starts from an orphaned node and no-ops for the levels that were themselves
+    split, relying on the split having already baked in correct totals. Nothing
+    else in this suite would catch that going stale after a refactor.
+    A branching factor of 2 forces repeated cascading splits through the root.
+    """
+    X, _ = generate("blobs", n_samples=150, random_seed=0)
+    tree = CFTree(threshold=0.25, branching_factor=2, n_features=2)
+    for i, point in enumerate(X):
+        tree.insert(point, i)
+
+    def leaves_under(node):
+        if node.is_leaf:
+            return list(node.entries)
+        return [
+            leaf
+            for entry in node.entries
+            if entry.child is not None
+            for leaf in leaves_under(entry.child)
+        ]
+
+    checked = 0
+    stack = [tree.root]
+    while stack:
+        node = stack.pop()
+        if node.is_leaf:
+            continue
+        for entry in node.entries:
+            if entry.child is None:
+                continue
+            descendants = leaves_under(entry.child)
+            assert entry.n == sum(d.n for d in descendants)
+            assert np.allclose(entry.ls, np.sum([d.ls for d in descendants], axis=0))
+            assert np.isclose(entry.ss, sum(d.ss for d in descendants))
+            checked += 1
+            stack.append(entry.child)
+    assert checked > 0, "tree never grew past a single leaf; raise n_samples"
+
+
 def test_smaller_threshold_produces_more_leaf_entries():
     X, _ = generate("blobs", n_samples=180, random_seed=0)
     coarse = birch(X, threshold=1.2, branching_factor=8, record_trace=False)

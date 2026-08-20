@@ -17,8 +17,6 @@ import numpy as np
 
 from app.algorithms.trace import ClusterResult, TraceRecorder
 
-_node_ids = itertools.count()
-
 
 class CFEntry:
     """One clustering feature, optionally pointing at a child node."""
@@ -80,8 +78,8 @@ class CFEntry:
 class CFNode:
     """A node in the CF-tree, holding at most `branching_factor` entries."""
 
-    def __init__(self, is_leaf: bool, n_features: int) -> None:
-        self.node_id = next(_node_ids)
+    def __init__(self, is_leaf: bool, n_features: int, node_id: int) -> None:
+        self.node_id = node_id
         self.is_leaf = is_leaf
         self.entries: list[CFEntry] = []
         self.parent: "CFNode | None" = None
@@ -99,8 +97,18 @@ class CFTree:
         self.threshold = threshold
         self.branching_factor = branching_factor
         self.n_features = n_features
-        self.root = CFNode(is_leaf=True, n_features=n_features)
+        # Node ids are numbered per tree, never from a module-level counter.
+        # The backend is a long-lived server: a process-global counter would
+        # hand two identical requests different ids, so `extras["cf_tree"]` and
+        # every trace `path`/`split_nodes` payload would differ between runs —
+        # breaking the determinism the animation depends on.
+        self._next_node_id = itertools.count()
+        self.root = self._new_node(is_leaf=True)
         self.last_split: list[int] = []
+
+    def _new_node(self, is_leaf: bool) -> CFNode:
+        """Create a node carrying the next id unique to this tree."""
+        return CFNode(is_leaf, self.n_features, next(self._next_node_id))
 
     def insert(self, point: np.ndarray, index: int) -> list[int]:
         """Insert one point, returning the node-id path from root to its leaf."""
@@ -160,8 +168,8 @@ class CFTree:
             midpoint = len(entries) // 2
             left_entries, right_entries = entries[:midpoint], entries[midpoint:]
 
-        left = CFNode(node.is_leaf, self.n_features)
-        right = CFNode(node.is_leaf, self.n_features)
+        left = self._new_node(node.is_leaf)
+        right = self._new_node(node.is_leaf)
         left.entries, right.entries = left_entries, right_entries
         for child_node in (left, right):
             for entry in child_node.entries:
@@ -177,7 +185,7 @@ class CFTree:
 
         parent = node.parent
         if parent is None:
-            new_root = CFNode(is_leaf=False, n_features=self.n_features)
+            new_root = self._new_node(is_leaf=False)
             new_root.entries = [left_summary, right_summary]
             left.parent = right.parent = new_root
             self.root = new_root
@@ -279,7 +287,11 @@ def birch(
     record_trace: bool = True,
     max_steps: int = 5000,
 ) -> ClusterResult:
-    """Cluster X by building a CF-tree, then clustering its leaf entries."""
+    """Cluster X by building a CF-tree, then clustering its leaf entries.
+
+    Returns a ClusterResult whose extras carry `cf_tree` (the serialised final
+    tree), `n_leaf_entries`, `entry_centroids`, `entry_radii`, and `entry_labels`.
+    """
     X = np.asarray(X, dtype=np.float64)
     if X.ndim != 2 or X.shape[0] == 0:
         raise ValueError("X must be a non-empty 2-D array of shape (n, d)")
