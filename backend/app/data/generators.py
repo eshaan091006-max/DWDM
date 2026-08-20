@@ -57,7 +57,14 @@ def _split_counts(n_samples: int, groups: int) -> list[int]:
     return counts
 
 
-def _blobs(rng, n_samples, noise, centers, scales):
+def _blobs(
+    rng: np.random.Generator,
+    n_samples: int,
+    noise: float,
+    centers: list[tuple[float, float]],
+    scales: list[float],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Build Gaussian blobs at the given centres, returning (points, labels)."""
     counts = _split_counts(n_samples, len(centers))
     chunks, labels = [], []
     for k, (center, scale, count) in enumerate(zip(centers, scales, counts)):

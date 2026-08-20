@@ -76,6 +76,29 @@ def test_significant_steps_survive_compaction():
     assert len(significant_narrations) == 4
 
 
+def test_keyframes_stay_consistent_after_compaction():
+    """Compaction and keyframing interact: compaction renumbers the step list,
+    and keyframes are assigned afterwards from the renumbered result. Exercise
+    both at once with a tight budget and a tight keyframe interval."""
+    rec = TraceRecorder(n_points=30, max_steps=16, keyframe_every=5)
+    for i in range(300):
+        rec.record("tick", f"step {i}", labels_delta={i % 30: i % 4})
+    trace = rec.finish()
+
+    assert trace["truncated"] is True
+
+    replayed = [-1] * 30
+    snapshots_seen = 0
+    for step in trace["steps"]:
+        for idx, label in step["labels_delta"].items():
+            replayed[int(idx)] = label
+        if step["labels_snapshot"] is not None:
+            snapshots_seen += 1
+            assert step["labels_snapshot"] == replayed
+    assert snapshots_seen > 0
+    assert replayed == rec.labels
+
+
 def test_step_indices_are_contiguous_after_compaction():
     rec = TraceRecorder(n_points=10, max_steps=8)
     for i in range(100):
