@@ -1,8 +1,11 @@
 """FastAPI application factory."""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+from app.api.routes import router
 from app.errors import ApiError, api_error_handler
 
 
@@ -18,6 +21,24 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_exception_handler(ApiError, api_error_handler)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
+        """Render pydantic validation failures in the same envelope as ApiError."""
+        first = exc.errors()[0] if exc.errors() else {}
+        location = [str(part) for part in first.get("loc", []) if part != "body"]
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": {
+                    "code": "invalid_request",
+                    "message": first.get("msg", "The request was not valid."),
+                    "field": ".".join(location) or None,
+                }
+            },
+        )
+
+    app.include_router(router)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:

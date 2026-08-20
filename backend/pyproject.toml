@@ -8,6 +8,10 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "numpy>=2.1",
     "pydantic>=2.9",
+    # Required by FastAPI's UploadFile/File for the CSV/JSON upload endpoint.
+    # FastAPI checks for it at route-declaration time, so without it the whole
+    # app fails to import, not just that one route.
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
