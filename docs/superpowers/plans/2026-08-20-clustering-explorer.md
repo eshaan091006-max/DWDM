@@ -1751,7 +1751,7 @@ git commit -m "feat: implement DBSCAN with execution trace"
   - `CFNode` with `is_leaf: bool`, `entries: list[CFEntry]`, `node_id: int`.
   - `CFTree(threshold: float, branching_factor: int, n_features: int)` with `.insert(point: np.ndarray, index: int) -> list[int]` returning the traversed node-id path, `.leaf_entries() -> list[CFEntry]`, `.serialize() -> dict`.
   - `birch(X, threshold=0.5, branching_factor=50, n_clusters=None, record_trace=True, max_steps=5000) -> ClusterResult`, with `extras["cf_tree"]` holding the final serialised tree and `extras["n_leaf_entries"]`.
-  - Step kinds: `insert`, `absorb`, `new_entry`, `split`, `global_cluster`, `done`.
+  - Step kinds emitted: `absorb`, `new_entry`, `split`, `global_cluster`, `done`. (An insertion reports itself as either `absorb` or `new_entry` — those two ARE the insert step, distinguished by whether the point fitted an existing entry. There is deliberately no separate `insert` kind.)
 
 **Design note on the CF vector:** an entry stores `n` (count), `ls` (vector sum), and `ss` (scalar sum of squared magnitudes, i.e. `sum over members of ||x||^2`). The centroid is `ls / n`; the radius is `sqrt(max(0, ss/n - ||ls/n||^2))`. Storing `ss` as a scalar rather than a vector is the standard formulation and is all the radius needs. Two CFs merge by adding their components — that additivity is what makes BIRCH work, and it has its own test.
 
@@ -1897,6 +1897,64 @@ def test_birch_assigns_every_point():
     assert -1 not in result.labels
 
 
+def test_cf_tree_is_byte_identical_across_repeated_runs():
+    """Node ids must be numbered per tree, not from a module-level counter.
+
+    The backend is a long-lived uvicorn server, so a process-global counter would
+    give two identical requests different node ids — `extras["cf_tree"]` and every
+    trace `path`/`split_nodes` payload would differ between runs even though the
+    clustering is identical. Comparing `.labels` alone would not catch it.
+    """
+    X, _ = generate("blobs", n_samples=90, random_seed=0)
+    first = birch(X, threshold=0.4, branching_factor=3, n_clusters=3, record_trace=False)
+    second = birch(X, threshold=0.4, branching_factor=3, n_clusters=3, record_trace=False)
+    assert first.labels == second.labels
+    assert first.extras["cf_tree"] == second.extras["cf_tree"]
+
+
+def test_non_leaf_entries_summarise_their_descendant_leaves():
+    """Ancestor CFs must stay in sync with the leaves beneath them.
+
+    `_update_path_statistics` and `_split`'s `copy_stats_from` calls jointly
+    maintain this, and the arrangement is subtle: after a split the path walk
+    starts from an orphaned node and no-ops for the levels that were themselves
+    split, relying on the split having already baked in correct totals. Nothing
+    else in this suite would catch that going stale after a refactor.
+    A branching factor of 2 forces repeated cascading splits through the root.
+    """
+    X, _ = generate("blobs", n_samples=150, random_seed=0)
+    tree = CFTree(threshold=0.25, branching_factor=2, n_features=2)
+    for i, point in enumerate(X):
+        tree.insert(point, i)
+
+    def leaves_under(node):
+        if node.is_leaf:
+            return list(node.entries)
+        return [
+            leaf
+            for entry in node.entries
+            if entry.child is not None
+            for leaf in leaves_under(entry.child)
+        ]
+
+    checked = 0
+    stack = [tree.root]
+    while stack:
+        node = stack.pop()
+        if node.is_leaf:
+            continue
+        for entry in node.entries:
+            if entry.child is None:
+                continue
+            descendants = leaves_under(entry.child)
+            assert entry.n == sum(d.n for d in descendants)
+            assert np.allclose(entry.ls, np.sum([d.ls for d in descendants], axis=0))
+            assert np.isclose(entry.ss, sum(d.ss for d in descendants))
+            checked += 1
+            stack.append(entry.child)
+    assert checked > 0, "tree never grew past a single leaf; raise n_samples"
+
+
 def test_smaller_threshold_produces_more_leaf_entries():
     X, _ = generate("blobs", n_samples=180, random_seed=0)
     coarse = birch(X, threshold=1.2, branching_factor=8, record_trace=False)
@@ -1977,7 +2035,7 @@ from typing import Any
 
 import numpy as np
 
-_node_ids = itertools.count()
+from app.algorithms.trace import ClusterResult, TraceRecorder
 
 
 class CFEntry:
@@ -2040,8 +2098,8 @@ class CFEntry:
 class CFNode:
     """A node in the CF-tree, holding at most `branching_factor` entries."""
 
-    def __init__(self, is_leaf: bool, n_features: int) -> None:
-        self.node_id = next(_node_ids)
+    def __init__(self, is_leaf: bool, n_features: int, node_id: int) -> None:
+        self.node_id = node_id
         self.is_leaf = is_leaf
         self.entries: list[CFEntry] = []
         self.parent: "CFNode | None" = None
@@ -2059,8 +2117,18 @@ class CFTree:
         self.threshold = threshold
         self.branching_factor = branching_factor
         self.n_features = n_features
-        self.root = CFNode(is_leaf=True, n_features=n_features)
+        # Node ids are numbered per tree, never from a module-level counter.
+        # The backend is a long-lived server: a process-global counter would hand
+        # two identical requests different ids, so `extras["cf_tree"]` and every
+        # trace `path`/`split_nodes` payload would differ between runs — breaking
+        # the determinism the animation depends on.
+        self._next_node_id = itertools.count()
+        self.root = self._new_node(is_leaf=True)
         self.last_split: list[int] = []
+
+    def _new_node(self, is_leaf: bool) -> CFNode:
+        """Create a node carrying the next id unique to this tree."""
+        return CFNode(is_leaf, self.n_features, next(self._next_node_id))
 
     def insert(self, point: np.ndarray, index: int) -> list[int]:
         """Insert one point, returning the node-id path from root to its leaf."""
@@ -2120,8 +2188,8 @@ class CFTree:
             midpoint = len(entries) // 2
             left_entries, right_entries = entries[:midpoint], entries[midpoint:]
 
-        left = CFNode(node.is_leaf, self.n_features)
-        right = CFNode(node.is_leaf, self.n_features)
+        left = self._new_node(node.is_leaf)
+        right = self._new_node(node.is_leaf)
         left.entries, right.entries = left_entries, right_entries
         for child_node in (left, right):
             for entry in child_node.entries:
@@ -2137,7 +2205,7 @@ class CFTree:
 
         parent = node.parent
         if parent is None:
-            new_root = CFNode(is_leaf=False, n_features=self.n_features)
+            new_root = self._new_node(is_leaf=False)
             new_root.entries = [left_summary, right_summary]
             left.parent = right.parent = new_root
             self.root = new_root
@@ -2239,7 +2307,11 @@ def birch(
     record_trace: bool = True,
     max_steps: int = 5000,
 ) -> ClusterResult:
-    """Cluster X by building a CF-tree, then clustering its leaf entries."""
+    """Cluster X by building a CF-tree, then clustering its leaf entries.
+
+    Returns a ClusterResult whose extras carry `cf_tree` (the serialised final
+    tree), `n_leaf_entries`, `entry_centroids`, `entry_radii`, and `entry_labels`.
+    """
     X = np.asarray(X, dtype=np.float64)
     if X.ndim != 2 or X.shape[0] == 0:
         raise ValueError("X must be a non-empty 2-D array of shape (n, d)")
@@ -2334,12 +2406,6 @@ def birch(
         },
         trace=rec.finish(),
     )
-```
-
-Add the missing import at the top of the file alongside the others:
-
-```python
-from app.algorithms.trace import ClusterResult, TraceRecorder
 ```
 
 - [ ] **Step 4: Run to verify it passes**
@@ -2614,7 +2680,11 @@ def cure(
     record_trace: bool = True,
     max_steps: int = 5000,
 ) -> ClusterResult:
-    """Cluster X by hierarchically merging clusters of representative points."""
+    """Cluster X by hierarchically merging clusters of representative points.
+
+    Returns a ClusterResult whose extras carry `representatives` (cluster id to
+    its shrunken representative coordinates), `sample_indices`, and `n_sampled`.
+    """
     X = np.asarray(X, dtype=np.float64)
     if X.ndim != 2 or X.shape[0] == 0:
         raise ValueError("X must be a non-empty 2-D array of shape (n, d)")
@@ -3804,7 +3874,6 @@ from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, File, UploadFile
-from pydantic import ValidationError
 
 from app.algorithms.birch import birch
 from app.algorithms.cure import cure
