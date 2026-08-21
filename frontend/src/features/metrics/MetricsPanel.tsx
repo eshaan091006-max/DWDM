@@ -1,11 +1,39 @@
-import { ClayBadge, ClayCard } from "../../clay";
+import { ClayBadge, ClayCard, useCountUp } from "../../clay";
 import { clusterColor } from "../../lib/colors";
-import { formatMetric, formatMs, formatParams, formatPercent } from "../../lib/format";
+import { formatMs, formatParams, formatPercent } from "../../lib/format";
 import type { ClusterResponse } from "../../lib/types";
 
 const SILHOUETTE_UNDEFINED =
   "Undefined here: silhouette needs at least two clusters, each with at least two members.";
 const DB_UNDEFINED = "Undefined here: Davies-Bouldin needs at least two clusters.";
+
+/**
+ * A stat whose numeral rolls to its new value.
+ *
+ * `digits` and `suffix` keep the formatting identical to the static version, so
+ * the animation is the only difference — the final rendered string matches what
+ * `formatMetric` / `formatPercent` would have produced.
+ */
+function AnimatedStat({
+  label,
+  value,
+  digits,
+  suffix = "",
+  hint,
+}: {
+  label: string;
+  value: number | null;
+  digits: number;
+  suffix?: string;
+  hint?: string;
+}) {
+  const animated = useCountUp(value);
+  const shown =
+    value === null || animated === null
+      ? "—"
+      : `${animated.toFixed(digits)}${suffix}`;
+  return <Stat label={label} value={shown} hint={hint} />;
+}
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -71,24 +99,28 @@ export function MetricsPanel({ result }: { result: ClusterResponse | null }) {
       </div>
 
       <div className="grid grid-cols-2 gap-2 mb-4">
-        <Stat label="Clusters" value={String(metrics.n_clusters)} />
-        <Stat
+        <AnimatedStat label="Clusters" value={metrics.n_clusters} digits={0} />
+        <AnimatedStat
           label="Noise"
-          value={total > 0 ? formatPercent(metrics.n_noise / total) : "—"}
+          value={total > 0 ? (metrics.n_noise / total) * 100 : null}
+          digits={0}
+          suffix="%"
           hint={`${metrics.n_noise} of ${total} points left unassigned`}
         />
-        <Stat
+        <AnimatedStat
           label="Silhouette"
-          value={formatMetric(metrics.silhouette)}
+          value={metrics.silhouette}
+          digits={3}
           hint={
             metrics.silhouette === null
               ? SILHOUETTE_UNDEFINED
               : "Higher is better; ranges -1 to 1."
           }
         />
-        <Stat
+        <AnimatedStat
           label="Davies-Bouldin"
-          value={formatMetric(metrics.davies_bouldin)}
+          value={metrics.davies_bouldin}
+          digits={3}
           hint={
             metrics.davies_bouldin === null ? DB_UNDEFINED : "Lower is better; 0 is ideal."
           }

@@ -135,6 +135,7 @@ export default function App() {
   return (
     <div className="h-full flex flex-col relative" style={{ isolation: "isolate" }}>
       <Aurora />
+      <div className="clay-grain" aria-hidden="true" />
 
       <header
         className="relative z-10 flex items-center gap-4 px-6 py-4 flex-wrap shrink-0"
@@ -219,7 +220,11 @@ export default function App() {
                     onChange={(id) => store.setAlgorithm(id as AlgorithmKey)}
                   />
                 </div>
-                <ParamPanel algorithm={algorithm} />
+                {/* Keyed on the algorithm so switching tabs remounts the panel
+                    and replays the tumble-in. */}
+                <div key={algorithm} className="clay-flip">
+                  <ParamPanel algorithm={algorithm} />
+                </div>
                 <ClayToggle
                   label="Auto-run on change"
                   checked={autoRun}
@@ -256,6 +261,9 @@ export default function App() {
                 accent={algorithm}
                 subtitle={caption || undefined}
                 glow
+                // The rim light spins always; the card breathes only while a
+                // trace is actually playing, so motion means something.
+                className={`clay-ring ${store.isPlaying ? "clay-beating" : ""}`}
               >
                 <ScatterCanvas
                   points={shownPoints}

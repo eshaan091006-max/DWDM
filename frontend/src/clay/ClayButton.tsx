@@ -1,9 +1,14 @@
 import type { ReactNode } from "react";
 
+import { useMagnetic } from "./useMagnetic";
+
 const TONES = {
-  primary: { background: "var(--clay-accent)", color: "var(--clay-accent-text)" },
+  primary: {
+    background: "linear-gradient(140deg, var(--clay-accent), var(--clay-accent-2))",
+    color: "var(--clay-accent-text)",
+  },
   ghost: { background: "var(--clay-surface-raised)", color: "var(--clay-text)" },
-  danger: { background: "var(--clay-warn)", color: "#fff" },
+  danger: { background: "linear-gradient(140deg, var(--clay-warn), #f0a48f)", color: "#fff" },
 } as const;
 
 export function ClayButton({
@@ -15,6 +20,7 @@ export function ClayButton({
   active = false,
   title,
   type = "button",
+  magnetic = true,
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -24,16 +30,24 @@ export function ClayButton({
   active?: boolean;
   title?: string;
   type?: "button" | "submit";
+  /** Leans toward the cursor on hover. Off inside tight control clusters. */
+  magnetic?: boolean;
 }) {
+  const { ref, onMouseMove, onMouseLeave } = useMagnetic(size === "sm" ? 0.18 : 0.26, size === "sm" ? 4 : 7);
+  const engage = magnetic && !disabled;
+
   return (
     <button
+      ref={ref}
       type={type}
       title={title}
       disabled={disabled}
       onClick={onClick}
-      className={`font-bold tracking-tight select-none clay-3d-btn ${
+      onMouseMove={engage ? onMouseMove : undefined}
+      onMouseLeave={engage ? onMouseLeave : undefined}
+      className={`font-bold tracking-tight select-none clay-3d-btn clay-magnetic ${
         size === "sm" ? "px-3 py-1.5 text-xs" : "px-4 py-2.5 text-sm"
-      } ${disabled ? "opacity-45 cursor-not-allowed" : "cursor-pointer active:scale-[0.97]"}`}
+      } ${disabled ? "opacity-45 cursor-not-allowed" : "cursor-pointer"}`}
       style={{
         ...TONES[variant],
         borderRadius: "var(--clay-radius-sm)",
@@ -41,7 +55,6 @@ export function ClayButton({
         // Pressed state inverts the inner shadow pair so the surface reads as
         // pushed into the page rather than sitting on it.
         boxShadow: active ? "var(--clay-shadow-pressed)" : "var(--clay-shadow)",
-        transition: "transform var(--clay-fast) var(--clay-ease), box-shadow var(--clay-fast) ease",
       }}
     >
       {children}

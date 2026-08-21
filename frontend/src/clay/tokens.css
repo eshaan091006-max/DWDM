@@ -220,18 +220,27 @@
 
 /* Chunky pressable button geometry: a solid coloured edge underneath that
    collapses when pressed, so the button visibly travels downward. */
+.clay-magnetic {
+  --mag-x: 0px;
+  --mag-y: 0px;
+  --press: 0px;
+}
+
 .clay-3d-btn {
   position: relative;
-  transform: translateY(0);
+  transform: translate3d(var(--mag-x), calc(var(--mag-y) + var(--press)), 0);
   transition:
-    transform 90ms var(--clay-ease),
-    box-shadow 90ms ease;
+    transform 160ms var(--clay-ease),
+    box-shadow 90ms ease,
+    filter 160ms ease;
 }
 .clay-3d-btn:not(:disabled):hover {
-  transform: translateY(-2px);
+  --press: -2px;
+  filter: saturate(1.15) brightness(1.03);
 }
 .clay-3d-btn:not(:disabled):active {
-  transform: translateY(3px);
+  --press: 3px;
+  transition-duration: 60ms;
 }
 
 .clay-title-3d {
@@ -240,6 +249,109 @@
     0 2px 0 color-mix(in srgb, var(--clay-dark) 26%, transparent),
     0 3px 0 color-mix(in srgb, var(--clay-dark) 14%, transparent),
     0 8px 18px var(--clay-drop);
+}
+
+/*
+ * A conic gradient that rotates around the hero card's rim.
+ *
+ * Drawn on a padded pseudo-element behind the card and masked to a 2px ring, so
+ * it reads as light raking around the edge of the slab rather than a border.
+ * The hue comes from the active algorithm, so the ring recolours with the UI.
+ */
+@property --clay-spin {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.clay-ring {
+  position: relative;
+}
+
+.clay-ring::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--clay-spin),
+    transparent 0deg,
+    var(--clay-accent) 40deg,
+    var(--clay-accent-2) 90deg,
+    transparent 150deg,
+    transparent 210deg,
+    var(--clay-accent-2) 270deg,
+    var(--clay-accent) 320deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: clay-spin 6s linear infinite;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0.9;
+}
+
+@keyframes clay-spin {
+  to {
+    --clay-spin: 360deg;
+  }
+}
+
+/* Fine grain over the whole app. Clay is a material; a little tooth stops the
+   large flat surfaces from looking like plastic. */
+.clay-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The whole panel tumbles when you switch algorithm. */
+@keyframes clay-flip {
+  0% {
+    opacity: 0;
+    transform: perspective(1000px) rotateY(-16deg) translateZ(-40px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.clay-flip {
+  animation: clay-flip 420ms var(--clay-ease) both;
+}
+
+/* A soft breath on the hero card while a trace is playing, so the interface
+   feels alive exactly while the algorithm is running. */
+@keyframes clay-heartbeat {
+  0%,
+  100% {
+    box-shadow: var(--clay-shadow-glow);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--clay-accent) 34%, transparent),
+      0 14px 60px var(--clay-glow),
+      16px 20px 44px var(--clay-drop),
+      inset 3px 3px 7px var(--clay-light),
+      inset -5px -6px 12px var(--clay-dark);
+  }
+}
+
+.clay-beating {
+  animation: clay-heartbeat 1.4s ease-in-out infinite;
 }
 
 @keyframes clay-rise {
@@ -397,5 +509,19 @@
   .clay-3d-btn {
     transform: none !important;
     transition: none !important;
+  }
+  .clay-ring::before,
+  .clay-flip,
+  .clay-beating {
+    animation: none !important;
+  }
+  .clay-magnetic {
+    --mag-x: 0px !important;
+    --mag-y: 0px !important;
+  }
+  /* The ring still reads as a rim light when it is not spinning. */
+  .clay-ring::before {
+    background: linear-gradient(135deg, var(--clay-accent), var(--clay-accent-2));
+    opacity: 0.5;
   }
 }

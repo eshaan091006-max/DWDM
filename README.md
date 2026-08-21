@@ -12,7 +12,7 @@ Two processes. Open two terminals.
 **Backend** — from `backend/`:
 
 ```bash
-.venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
+.venv/Scripts/python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 **Frontend** — from `frontend/`:
@@ -24,7 +24,7 @@ npm run dev
 Then open http://localhost:5173. The header shows whether the backend is
 reachable, and says how to start it if not.
 
-The API alone is browsable at http://localhost:8000/docs if you want to poke at
+The API alone is browsable at http://127.0.0.1:8000/docs if you want to poke at
 the algorithms without the UI.
 
 ## Tests
