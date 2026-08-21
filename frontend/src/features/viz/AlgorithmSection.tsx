@@ -5,7 +5,9 @@ import { formatMetric, formatMs, formatParams } from "../../lib/format";
 import { labelsAt } from "../../lib/trace";
 import type { AlgorithmKey } from "../../lib/types";
 import { useAppStore } from "../../store/appStore";
+import { ExportBar } from "../export/ExportBar";
 import { ClusterLegend } from "../metrics/ClusterLegend";
+import { MetricsPanel } from "../metrics/MetricsPanel";
 import { ParamPanel } from "../params/ParamPanel";
 import { TheoryNotes } from "../theory/TheoryNotes";
 import { CFTreeView } from "./CFTreeView";
@@ -202,14 +204,15 @@ export function AlgorithmSection({
             <TheoryNotes algorithm={algorithm} />
           </ClayCard>
 
+          {/* MetricsPanel rather than a hand-rolled stat grid: it already
+              carries the params actually used, the rolling numerals, and the
+              PCA explained-variance note, all of which the local version had
+              silently dropped. */}
+          <MetricsPanel result={result} />
+
           {result && (
-            <ClayCard title="Quality" tilt={false}>
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
-                <Metric label="Silhouette" value={formatMetric(result.metrics.silhouette, 3)} />
-                <Metric label="Davies-Bouldin" value={formatMetric(result.metrics.davies_bouldin, 3)} />
-                <Metric label="Clusters" value={String(result.metrics.n_clusters)} />
-                <Metric label="Noise" value={String(result.metrics.n_noise)} />
-              </dl>
+            <ClayCard title="Export" tilt={false}>
+              <ExportBar result={result} />
             </ClayCard>
           )}
         </div>
@@ -233,15 +236,3 @@ export function AlgorithmSection({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--clay-text-faint)" }}>
-        {label}
-      </dt>
-      <dd className="font-mono font-black text-base tabular-nums" style={{ color: "var(--clay-text)" }}>
-        {value}
-      </dd>
-    </div>
-  );
-}
