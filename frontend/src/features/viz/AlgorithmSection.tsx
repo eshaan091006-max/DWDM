@@ -42,6 +42,11 @@ export function AlgorithmSection({
   algorithm: AlgorithmKey;
   index: number;
 }) {
+  // One observer, two jobs: `seen` fires 200px early so the algorithm has
+  // started computing by the time the section is on screen, and it also drives
+  // the reveal. Revealing on the same early trigger means the transition has
+  // finished before the section is fully in view, rather than animating under
+  // the reader's eyes.
   const { ref, seen } = useInView<HTMLElement>();
   const { run, busy } = useAlgorithmRun(algorithm, seen);
 
@@ -76,13 +81,23 @@ export function AlgorithmSection({
   const traceSuppressed = points.length > TRACE_LIMIT;
 
   return (
-    <section ref={ref} className="deck-section" onMouseDown={() => setAlgorithm(algorithm)}>
+    <section
+      ref={ref}
+      className={`deck-section ${seen ? "is-revealed" : ""}`}
+      onMouseDown={() => setAlgorithm(algorithm)}
+    >
       <header className="deck-heading">
         <span className="deck-numeral" aria-hidden="true">
           {String(index).padStart(2, "0")}
         </span>
         <div className="min-w-0">
-          <h2 className="clay-display text-3xl font-black tracking-tighter leading-none">
+          {/* Keyed on the run's identity so a fresh result remounts the heading
+              and replays the tear. During a demo it makes the exact moment the
+              numbers change impossible to miss. */}
+          <h2
+            key={result ? `${result.runtime_ms}-${result.n_clusters}` : "idle"}
+            className="clay-display clay-glitch text-3xl font-black tracking-tighter leading-none"
+          >
             {TITLE[algorithm]}
           </h2>
           <p

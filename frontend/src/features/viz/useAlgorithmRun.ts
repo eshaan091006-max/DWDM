@@ -63,14 +63,22 @@ export function useAlgorithmRun(algorithm: AlgorithmKey, inView: boolean) {
   return { run, busy };
 }
 
-/** True once the element has been scrolled into view; stays true afterwards. */
+/**
+ * True once the element has been scrolled into view; stays true afterwards.
+ *
+ * Falls open: if IntersectionObserver is unavailable the element counts as seen
+ * immediately, so a missing API can never leave a section permanently blank or
+ * permanently un-run.
+ */
 export function useInView<T extends HTMLElement>(rootMargin = "200px") {
   const ref = useRef<T | null>(null);
-  const [seen, setSeen] = useState(false);
+  const [seen, setSeen] = useState(
+    () => typeof IntersectionObserver === "undefined",
+  );
 
   useEffect(() => {
     const node = ref.current;
-    if (!node || seen) return;
+    if (!node || seen || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) setSeen(true);

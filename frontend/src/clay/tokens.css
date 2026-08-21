@@ -364,6 +364,68 @@
   animation-play-state: paused;
 }
 
+/* -------------------------------------------------------- background type */
+
+.bg-type {
+  position: fixed;
+  inset: 0;
+  /* Behind the grid (z-index 0 on .clay-aurora) and everything else. */
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  user-select: none;
+}
+
+.bg-type-row {
+  position: absolute;
+  left: 0;
+  display: inline-flex;
+  white-space: nowrap;
+  font-family: var(--clay-font-display);
+  font-size: clamp(64px, 11vw, 190px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  /* Outline only. A filled version at any opacity muddies the plots behind it. */
+  color: transparent;
+  /* A heavier stroke reads better at this size than more opacity would: the
+     letterforms stay legible as shapes without the fill muddying what is on
+     top of them. */
+  -webkit-text-stroke: 2px var(--clay-text);
+  opacity: 0.075;
+  animation-name: clay-marquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.bg-type-run {
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .bg-type-row {
+  opacity: 0.075;
+}
+
+/* ----------------------------------------------------------------- reveal */
+
+/*
+ * Sections arrive as the page scrolls. The offset is small and the duration
+ * short: this is punctuation between algorithms, not a curtain to sit through.
+ */
+.deck-section {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 260ms var(--clay-ease),
+    transform 260ms var(--clay-ease);
+}
+.deck-section.is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
 /* ----------------------------------------------------------------- effects */
 
 /*
@@ -519,8 +581,16 @@
   .clay-glitch,
   .clay-stamp,
   .clay-scanning,
-  .clay-caret::after {
+  .clay-caret::after,
+  .bg-type-row {
     animation: none !important;
+  }
+  /* Sections are simply present rather than animating in; without this the
+     reveal would leave every section stuck at opacity 0. */
+  .deck-section {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
   .clay-scanning {
     background-image: none;

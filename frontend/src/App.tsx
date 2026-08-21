@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Aurora,
+  BackgroundType,
   ClayBadge,
   ClayButton,
   ClayCard,
@@ -156,6 +157,7 @@ export default function App() {
 
   return (
     <div className="h-full flex flex-col relative" style={{ isolation: "isolate" }}>
+      <BackgroundType />
       <Aurora />
       <div className="clay-grain" aria-hidden="true" />
 
@@ -315,7 +317,11 @@ export default function App() {
           // The deck: one scroll, data first, then each algorithm in turn on the
           // same points. Reads as a sequence rather than a control panel.
           <div className="deck clay-scroll">
-            <section className="deck-section">
+            {/* Always revealed: this section is at the top of the scroll and is
+                on screen from the first frame, so it has nothing to animate in
+                from — and without the class the reveal rule would leave it at
+                opacity 0 forever. */}
+            <section className="deck-section is-revealed">
               <header className="deck-heading">
                 <span className="deck-numeral" aria-hidden="true">
                   00

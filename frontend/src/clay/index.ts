@@ -1,4 +1,5 @@
 export { Aurora } from "./Aurora";
+export { BackgroundType } from "./BackgroundType";
 export { Marquee, Tick } from "./Marquee";
 export { useTilt } from "./useTilt";
 export { useMagnetic } from "./useMagnetic";
