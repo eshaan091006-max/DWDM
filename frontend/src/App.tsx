@@ -2,29 +2,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Aurora, ClayBadge, ClayButton, ClayCard, ClayTabs, ClayToggle } from "./clay";
 import { api } from "./lib/api";
-import { formatParams } from "./lib/format";
+import { formatMetric, formatMs, formatParams } from "./lib/format";
 import { guardCureParams } from "./lib/cureGuard";
 import { labelsAt } from "./lib/trace";
 import type { AlgorithmKey } from "./lib/types";
 import { useAppStore } from "./store/appStore";
 import { CompareGrid } from "./features/compare/CompareGrid";
 import { DataPanel } from "./features/data/DataPanel";
-import { ExportBar } from "./features/export/ExportBar";
-import { MetricsPanel } from "./features/metrics/MetricsPanel";
-import { NarrationLog } from "./features/metrics/NarrationLog";
-import { ParamPanel } from "./features/params/ParamPanel";
+import { ClusterLegend } from "./features/metrics/ClusterLegend";
 import { TheoryPanel } from "./features/theory/TheoryPanel";
-import { CFTreeView } from "./features/viz/CFTreeView";
+import { AlgorithmSection } from "./features/viz/AlgorithmSection";
 import { ScatterCanvas } from "./features/viz/ScatterCanvas";
 import { TracePlayer } from "./features/viz/TracePlayer";
 import { overlayFor } from "./features/viz/overlays";
-import type { SerialisedTree } from "./features/viz/treeLayout";
 
-const ALGO_TABS = [
-  { id: "dbscan", label: "DBSCAN" },
-  { id: "birch", label: "BIRCH" },
-  { id: "cure", label: "CURE" },
-];
 
 const VIEW_TABS = [
   { id: "explore", label: "Explore" },
@@ -60,7 +51,23 @@ export default function App() {
   } = store;
 
   const [view, setView] = useState("explore");
+  /**
+   * Present mode drops the two side rails and gives the whole width to the plot,
+   * the transport bar, and one large narration line. Everything stays live — it
+   * is the same state, re-laid-out for an audience rather than an operator.
+   */
+  const [presenting, setPresenting] = useState(false);
   const debounceRef = useRef<number | null>(null);
+
+  // Escape leaves Present mode; nothing else in the app traps the key.
+  useEffect(() => {
+    if (!presenting) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPresenting(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [presenting]);
 
   useEffect(() => {
     api.algorithms().then(store.setSpecs).catch(() => {});
@@ -133,12 +140,10 @@ export default function App() {
     [algorithm, currentStep, shownPoints],
   );
 
-  const treeFromStep = (currentStep?.payload.tree as SerialisedTree | undefined) ?? null;
-  const finalTree = (result?.extras.cf_tree as SerialisedTree | undefined) ?? null;
   const caption = result ? formatParams(result.params_used) : undefined;
-  const traceSuppressed = recordTrace && points.length > TRACE_LIMIT;
+  // Present mode gives the plot the vertical space the rails were using.
+  const presentHeight = Math.max(420, Math.round((window.innerHeight || 900) * 0.56));
 
-  const rail = "rail clay-scroll";
 
   return (
     <div className="h-full flex flex-col relative" style={{ isolation: "isolate" }}>
@@ -174,9 +179,23 @@ export default function App() {
         </div>
 
         <div className="ml-auto flex items-center gap-3">
-          <div style={{ minWidth: 300 }}>
-            <ClayTabs tabs={VIEW_TABS} active={view} onChange={setView} />
-          </div>
+          {!presenting && (
+            <div style={{ minWidth: 300 }}>
+              <ClayTabs tabs={VIEW_TABS} active={view} onChange={setView} />
+            </div>
+          )}
+          <ClayButton
+            size="sm"
+            variant={presenting ? "primary" : "ghost"}
+            active={presenting}
+            onClick={() => {
+              setPresenting((on) => !on);
+              setView("explore");
+            }}
+            title={presenting ? "Leave Present mode (Esc)" : "Fill the screen with the plot"}
+          >
+            {presenting ? "Exit present" : "Present"}
+          </ClayButton>
           <ClayButton size="sm" onClick={store.toggleTheme} title="Toggle light and dark">
             {theme === "light" ? "Dark" : "Light"}
           </ClayButton>
@@ -201,7 +220,65 @@ export default function App() {
           </ClayCard>
         )}
 
-        {view === "compare" ? (
+        {presenting ? (
+          <div className="full-scroll clay-scroll">
+            <ClayCard
+              title="Visualisation"
+              accent={algorithm}
+              subtitle={caption || undefined}
+              glow
+              tilt={false}
+              className={`clay-ring ${store.isPlaying ? "clay-beating" : ""}`}
+              actions={<ClayBadge tone="accent">{points.length} points</ClayBadge>}
+            >
+              <ScatterCanvas
+                points={shownPoints}
+                labels={shownLabels}
+                pointTypes={result?.extras.point_types as string[] | undefined}
+                pointNames={store.pointNames}
+                overlay={overlay}
+                caption={caption}
+                height={presentHeight}
+              />
+
+              <div className="mt-4">
+                <ClusterLegend result={result} />
+              </div>
+
+              <div className="mt-4">
+                <TracePlayer
+                  steps={steps}
+                  truncated={result?.trace.truncated ?? false}
+                  sampleRate={result?.trace.sample_rate ?? 1}
+                />
+              </div>
+
+              {/* One line, set large. In a demo the narration is the thing the
+                  room is reading, so it gets the typographic weight the rail
+                  version cannot afford. */}
+              <p
+                className="mt-5 text-lg font-bold leading-snug min-h-[3.2rem]"
+                style={{ color: "var(--clay-text)" }}
+                aria-live="polite"
+              >
+                {currentStep?.narration ?? "Press play to step through the algorithm."}
+              </p>
+
+              {result && (
+                <div
+                  className="mt-3 flex flex-wrap gap-2 text-xs"
+                  style={{ color: "var(--clay-text-muted)" }}
+                >
+                  <ClayBadge tone="accent">{result.n_clusters} clusters</ClayBadge>
+                  {result.n_noise > 0 && <ClayBadge>{result.n_noise} noise</ClayBadge>}
+                  <ClayBadge>silhouette {formatMetric(result.metrics.silhouette, 3)}</ClayBadge>
+                  <ClayBadge>DB {formatMetric(result.metrics.davies_bouldin, 3)}</ClayBadge>
+                  <ClayBadge>{formatMs(result.runtime_ms)}</ClayBadge>
+                </div>
+              )}
+            </ClayCard>
+          </div>
+        ) : view === "compare" ? (
           <div className="full-scroll clay-scroll">
             <CompareGrid />
           </div>
@@ -215,109 +292,65 @@ export default function App() {
             <TheoryPanel algorithm="cure" />
           </div>
         ) : (
-          // Three rails that scroll independently, so the plot never leaves the
-          // viewport while you read metrics or scroll parameters.
-          <div className="explore-grid clay-scroll">
-            <div className={rail}>
-              <DataPanel />
-              <ClayCard title="Parameters" accent="tune" delay={60}>
-                <div className="mb-4">
-                  <ClayTabs
-                    tabs={ALGO_TABS}
-                    active={algorithm}
-                    onChange={(id) => store.setAlgorithm(id as AlgorithmKey)}
-                  />
-                </div>
-                {/* Keyed on the algorithm so switching tabs remounts the panel
-                    and replays the tumble-in. */}
-                <div key={algorithm} className="clay-flip">
-                  <ParamPanel algorithm={algorithm} />
-                </div>
-                <ClayToggle
-                  label="Auto-run on change"
-                  checked={autoRun}
-                  onChange={store.setAutoRun}
-                />
-                <ClayToggle
-                  label="Standardise features"
-                  checked={standardize}
-                  onChange={store.setStandardize}
-                  help="Z-score each column. eps and threshold are scale-sensitive."
-                />
-                <ClayToggle
-                  label="Record steps"
-                  checked={recordTrace}
-                  onChange={store.setRecordTrace}
-                  help={`Suppressed automatically above ${TRACE_LIMIT} points.`}
-                />
-                {traceSuppressed && (
-                  <p className="mb-3">
-                    <ClayBadge tone="warn">
-                      {points.length} points — trace suppressed for this run
-                    </ClayBadge>
+          // The deck: one scroll, data first, then each algorithm in turn on the
+          // same points. Reads as a sequence rather than a control panel.
+          <div className="deck clay-scroll">
+            <section className="deck-section">
+              <header className="deck-heading">
+                <span className="deck-numeral" aria-hidden="true">
+                  00
+                </span>
+                <div className="min-w-0">
+                  <h2 className="clay-display text-3xl font-black tracking-tighter leading-none">
+                    Data
+                  </h2>
+                  <p
+                    className="text-[11px] font-bold uppercase tracking-[0.16em] mt-1"
+                    style={{ color: "var(--clay-accent)" }}
+                  >
+                    {points.length > 0
+                      ? `${points.length} points · ${featureNames.length}D · ${store.datasetName}`
+                      : "Nothing loaded yet"}
                   </p>
-                )}
-                <ClayButton variant="primary" onClick={run} disabled={points.length === 0}>
-                  Run {algorithm.toUpperCase()}
-                </ClayButton>
-              </ClayCard>
-            </div>
-
-            <div className={rail}>
-              <ClayCard
-                title="Visualisation"
-                accent={algorithm}
-                subtitle={caption || undefined}
-                glow
-                // The rim light spins always; the card breathes only while a
-                // trace is actually playing, so motion means something.
-                className={`clay-ring ${store.isPlaying ? "clay-beating" : ""}`}
-              >
-                <ScatterCanvas
-                  points={shownPoints}
-                  labels={shownLabels}
-                  pointTypes={result?.extras.point_types as string[] | undefined}
-                  pointNames={store.pointNames}
-                  overlay={overlay}
-                  editable={featureNames.length === 2}
-                  onAddPoint={(point) => store.addPoint(point)}
-                  onMovePoint={(index, point) => store.movePoint(index, point)}
-                  onRemovePoint={(index) => store.removePoint(index)}
-                  caption={caption}
-                  height={560}
-                />
-                <div className="mt-4">
-                  <TracePlayer
-                    steps={steps}
-                    truncated={result?.trace.truncated ?? false}
-                    sampleRate={result?.trace.sample_rate ?? 1}
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                  <ClayToggle
+                    label="Auto-run"
+                    checked={autoRun}
+                    onChange={store.setAutoRun}
+                    help="Re-cluster 300ms after any change, once a section is in view."
+                  />
+                  <ClayToggle
+                    label="Standardise"
+                    checked={standardize}
+                    onChange={store.setStandardize}
+                    help="Z-score each column. eps and threshold are scale-sensitive."
                   />
                 </div>
-              </ClayCard>
-
-              {algorithm === "birch" && (
-                <ClayCard
-                  title="CF-tree"
-                  accent="structure"
-                  subtitle="Highlighted nodes are on the current insertion path"
-                  delay={100}
-                >
-                  <CFTreeView
-                    tree={treeFromStep ?? finalTree}
-                    highlightPath={(currentStep?.payload.path as number[] | undefined) ?? []}
-                    splitNodes={(currentStep?.payload.split_nodes as number[] | undefined) ?? []}
-                  />
+              </header>
+              <div className="deck-body">
+                <DataPanel />
+                <ClayCard title="Reading this page" tone="sunken" tilt={false}>
+                  <p className="text-xs leading-relaxed" style={{ color: "var(--clay-text-muted)" }}>
+                    Load a dataset here, then scroll. Each algorithm runs on the same
+                    points and appears in turn, with its parameters and a short note on
+                    how it works beside the plot.
+                  </p>
+                  <p
+                    className="text-xs leading-relaxed mt-3"
+                    style={{ color: "var(--clay-text-muted)" }}
+                  >
+                    Click a plot to give it the transport bar, then press play to watch
+                    that algorithm run step by step. The full theory for all three is on
+                    the Theory tab.
+                  </p>
                 </ClayCard>
-              )}
-            </div>
+              </div>
+            </section>
 
-            <div className={rail}>
-              <MetricsPanel result={result} />
-              <NarrationLog steps={steps} playhead={playhead} />
-              <ClayCard title="Export" accent="save" delay={140}>
-                <ExportBar result={result} />
-              </ClayCard>
-            </div>
+            <AlgorithmSection algorithm="dbscan" index={1} />
+            <AlgorithmSection algorithm="birch" index={2} />
+            <AlgorithmSection algorithm="cure" index={3} />
           </div>
         )}
       </main>

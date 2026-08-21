@@ -12,6 +12,8 @@ export function ClayCard({
   delay = 0,
   accent,
   tilt = true,
+  step,
+  actions,
 }: {
   children: ReactNode;
   title?: string;
@@ -26,6 +28,14 @@ export function ClayCard({
   accent?: string;
   /** Cursor-tracked 3D tilt. Off for cards holding dense scrolling text. */
   tilt?: boolean;
+  /**
+   * Position in the workflow, e.g. "01". Rendered as a numeral beside the
+   * title so someone watching a demo can see the order of operations without
+   * being told it.
+   */
+  step?: string;
+  /** Controls pinned to the header row, right-aligned against the title. */
+  actions?: ReactNode;
 }) {
   const { ref, onMouseMove, onMouseLeave } = useTilt(glow ? 3 : 5);
 
@@ -49,28 +59,48 @@ export function ClayCard({
       }}
     >
       {(title || accent) && (
-        <header className="mb-3 clay-layer-1">
-          {accent && (
-            <div
-              className="text-[10px] font-black uppercase tracking-[0.18em] mb-1"
-              style={{ color: "var(--clay-accent)" }}
+        <header className="mb-3 clay-layer-1 flex items-start gap-3">
+          {step && (
+            <span
+              aria-hidden="true"
+              className="shrink-0 grid place-items-center font-black tabular-nums"
+              style={{
+                width: 34,
+                height: 34,
+                fontSize: 13,
+                borderRadius: "var(--clay-radius-sm)",
+                background: "var(--clay-accent-soft)",
+                color: "var(--clay-accent)",
+                boxShadow: "var(--clay-shadow-sunken)",
+              }}
             >
-              {accent}
-            </div>
+              {step}
+            </span>
           )}
-          {title && (
-            <h2
-              className="text-base font-black tracking-tight"
-              style={{ color: "var(--clay-text)" }}
-            >
-              {title}
-            </h2>
-          )}
-          {subtitle && (
-            <p className="text-xs mt-0.5" style={{ color: "var(--clay-text-muted)" }}>
-              {subtitle}
-            </p>
-          )}
+          <div className="min-w-0 flex-1">
+            {accent && (
+              <div
+                className="text-[10px] font-black uppercase tracking-[0.18em] mb-1"
+                style={{ color: "var(--clay-accent)" }}
+              >
+                {accent}
+              </div>
+            )}
+            {title && (
+              <h2
+                className="text-base font-black tracking-tight"
+                style={{ color: "var(--clay-text)" }}
+              >
+                {title}
+              </h2>
+            )}
+            {subtitle && (
+              <p className="text-xs mt-0.5" style={{ color: "var(--clay-text-muted)" }}>
+                {subtitle}
+              </p>
+            )}
+          </div>
+          {actions && <div className="shrink-0 flex items-center gap-2">{actions}</div>}
         </header>
       )}
       <div className="relative" style={{ zIndex: 1 }}>

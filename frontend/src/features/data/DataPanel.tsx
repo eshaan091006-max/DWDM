@@ -21,6 +21,8 @@ export function DataPanel() {
   return (
     <ClayCard
       title="Data"
+      accent="source"
+      step="01"
       subtitle={`${points.length} points · ${featureNames.length}D · ${datasetName}`}
     >
       <div className="mb-4">
