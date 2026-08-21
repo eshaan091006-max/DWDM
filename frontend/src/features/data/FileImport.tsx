@@ -40,7 +40,7 @@ export function FileImport() {
     if (!table) return;
     try {
       const result = selectFeatures(table, features, labelColumn);
-      setPoints(result.points, result.featureNames, result.labels, name);
+      setPoints(result.points, result.featureNames, result.labels, name, result.names);
       setDropped(result.droppedRows);
       setError(null);
     } catch (error) {

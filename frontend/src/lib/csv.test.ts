@@ -46,6 +46,30 @@ describe("selectFeatures", () => {
     expect(selectFeatures(table, ["x", "y"], null).labels).toBeNull();
   });
 
+  it("returns null names when no label column is chosen", () => {
+    expect(selectFeatures(table, ["x", "y"], null).names).toBeNull();
+  });
+
+  it("keeps the label column's raw text as display names", () => {
+    // The plot prints "A" beside a point; `labels` separately turns the same
+    // column into integers for ground-truth comparison.
+    const result = selectFeatures(table, ["x"], "name");
+    expect(result.names).toEqual(["a", "b", "c"]);
+    expect(result.labels).toEqual([0, 1, 2]);
+  });
+
+  it("keeps names aligned with points when rows are dropped", () => {
+    const result = selectFeatures(table, ["x", "y"], "name");
+    // Row "c" has a missing y and is dropped, so its name must go with it.
+    expect(result.points).toHaveLength(2);
+    expect(result.names).toEqual(["a", "b"]);
+  });
+
+  it("stringifies numeric label values for display", () => {
+    const result = selectFeatures(table, ["x", "y"], "cls");
+    expect(result.names).toEqual(["0", "1"]);
+  });
+
   it("maps non-numeric label values to distinct integers", () => {
     const result = selectFeatures(table, ["x"], "name");
     expect(result.labels).toEqual([0, 1, 2]);

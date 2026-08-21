@@ -277,6 +277,7 @@ export default function App() {
                   points={shownPoints}
                   labels={shownLabels}
                   pointTypes={result?.extras.point_types as string[] | undefined}
+                  pointNames={store.pointNames}
                   overlay={overlay}
                   editable={featureNames.length === 2}
                   onAddPoint={(point) => store.addPoint(point)}

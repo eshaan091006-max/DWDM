@@ -8,6 +8,13 @@ export type Overlay = (ctx: CanvasRenderingContext2D, t: Transform) => void;
 const HIT_RADIUS = 10;
 const PADDING = 34;
 
+/**
+ * Past this many points, per-point names overlap into an unreadable mess and
+ * actively hide the cluster shape they were meant to annotate. Named datasets
+ * of this size are hand-built teaching examples; generated ones are far larger.
+ */
+const NAME_LIMIT = 60;
+
 export function ScatterCanvas({
   points,
   labels,
@@ -19,10 +26,17 @@ export function ScatterCanvas({
   onRemovePoint,
   height = 520,
   caption,
+  pointNames,
 }: {
   points: number[][];
   labels: number[];
   pointTypes?: string[];
+  /**
+   * Optional per-point captions, drawn beside each dot. Only shown while the
+   * set is small enough that the text does not turn into a grey smear — see
+   * NAME_LIMIT.
+   */
+  pointNames?: string[] | null;
   overlay?: Overlay;
   editable?: boolean;
   onAddPoint?: (point: [number, number]) => void;
@@ -102,6 +116,31 @@ export function ScatterCanvas({
     }
     ctx.shadowBlur = 0;
 
+    // Names go in a second pass, on top of every dot, so a later point's fill
+    // can never bury an earlier point's caption.
+    const showNames = pointNames && points.length <= NAME_LIMIT;
+    if (showNames) {
+      ctx.font = "700 12px ui-rounded, 'Segoe UI', system-ui, sans-serif";
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      for (let i = 0; i < points.length; i += 1) {
+        const name = pointNames[i];
+        if (!name) continue;
+        const [sx, sy] = transform.toScreen(points[i][0], points[i][1] ?? 0);
+        const label = labels[i] ?? -1;
+
+        // A dark halo under the glyph keeps it readable over a bright cluster
+        // fill and over the sunken surface alike, without a solid box that
+        // would occlude neighbouring points.
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(0,0,0,0.55)";
+        ctx.strokeText(name, sx + 9, sy - 1);
+        ctx.fillStyle = label < 0 ? NOISE_COLOR : clusterColor(label);
+        ctx.fillText(name, sx + 9, sy - 1);
+      }
+      ctx.textAlign = "start";
+    }
+
     if (caption) {
       ctx.font = "600 11px ui-monospace, SFMono-Regular, Menlo, monospace";
       ctx.textBaseline = "top";
@@ -111,7 +150,7 @@ export function ScatterCanvas({
       ctx.fillStyle = "#ffffff";
       ctx.fillText(caption, 17, 15);
     }
-  }, [points, labels, pointTypes, overlay, width, height, caption]);
+  }, [points, labels, pointTypes, overlay, width, height, caption, pointNames]);
 
   function locate(event: React.MouseEvent<HTMLCanvasElement>): {
     transform: Transform;

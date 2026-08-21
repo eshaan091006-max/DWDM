@@ -8,6 +8,8 @@ interface AppState {
   points: number[][];
   featureNames: string[];
   sourceLabels: number[] | null;
+  /** Display names from an imported label column, aligned with `points`. */
+  pointNames: string[] | null;
   datasetName: string;
 
   specs: Record<AlgorithmKey, AlgorithmSpec> | null;
@@ -34,6 +36,7 @@ interface AppState {
     featureNames: string[],
     sourceLabels: number[] | null,
     name: string,
+    pointNames?: string[] | null,
   ) => void;
   addPoint: (point: number[]) => void;
   movePoint: (index: number, point: number[]) => void;
@@ -71,6 +74,7 @@ export const useAppStore = create<AppState>((set) => ({
   points: [],
   featureNames: ["x", "y"],
   sourceLabels: null,
+  pointNames: null,
   datasetName: "empty",
 
   specs: null,
@@ -92,11 +96,21 @@ export const useAppStore = create<AppState>((set) => ({
   busy: false,
   error: null,
 
-  setPoints: (points, featureNames, sourceLabels, datasetName) =>
-    set({ points, featureNames, sourceLabels, datasetName, ...CLEARED }),
+  setPoints: (points, featureNames, sourceLabels, datasetName, pointNames = null) =>
+    set({ points, featureNames, sourceLabels, datasetName, pointNames, ...CLEARED }),
   // Hand-edited points have no ground truth, so any imported labels are dropped.
+  // A freshly clicked point also has no name, and a partly-named set would put
+  // the wrong caption against the wrong dot, so the names go too.
   addPoint: (point) =>
-    set((s) => ({ points: [...s.points, point], sourceLabels: null, ...CLEARED })),
+    set((s) => ({
+      points: [...s.points, point],
+      sourceLabels: null,
+      pointNames: null,
+      ...CLEARED,
+    })),
+  // Dragging changes a point's position, not which point it is: the name rides
+  // along. Ground truth is dropped because the moved point may no longer belong
+  // to the group it was labelled with.
   movePoint: (index, point) =>
     set((s) => ({
       points: s.points.map((p, i) => (i === index ? point : p)),
@@ -107,9 +121,18 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({
       points: s.points.filter((_, i) => i !== index),
       sourceLabels: null,
+      // Filter names by the same index so the survivors stay aligned.
+      pointNames: s.pointNames ? s.pointNames.filter((_, i) => i !== index) : null,
       ...CLEARED,
     })),
-  clearPoints: () => set({ points: [], sourceLabels: null, datasetName: "empty", ...CLEARED }),
+  clearPoints: () =>
+    set({
+      points: [],
+      sourceLabels: null,
+      pointNames: null,
+      datasetName: "empty",
+      ...CLEARED,
+    }),
 
   setSpecs: (specs) =>
     set({

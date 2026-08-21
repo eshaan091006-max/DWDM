@@ -3,6 +3,14 @@ import type { ParsedTable } from "./types";
 export interface SelectionResult {
   points: number[][];
   labels: number[] | null;
+  /**
+   * The label column's raw values, kept as written, one per surviving point.
+   *
+   * `labels` turns these into integers so ground truth can be compared against
+   * a clustering; `names` keeps the originals so the plot can print "A" beside
+   * a point instead of "0". Both come from the same column and stay aligned.
+   */
+  names: string[] | null;
   droppedRows: number;
   featureNames: string[];
 }
@@ -66,15 +74,16 @@ export function selectFeatures(
   }
 
   let labels: number[] | null = null;
+  let names: string[] | null = null;
   if (labelIndex !== -1) {
+    names = rawLabels.map((value) => String(value));
     // Non-numeric labels become stable integers by order of first appearance.
     const seen = new Map<string, number>();
-    labels = rawLabels.map((value) => {
-      const key = String(value);
+    labels = names.map((key) => {
       if (!seen.has(key)) seen.set(key, seen.size);
       return seen.get(key)!;
     });
   }
 
-  return { points, labels, droppedRows, featureNames: featureColumns };
+  return { points, labels, names, droppedRows, featureNames: featureColumns };
 }
