@@ -121,15 +121,22 @@ export default function App() {
 
   // Auto-run is debounced so dragging a slider does not flood the backend with
   // a request per pixel.
+  //
+  // Gated to Present mode. In the deck each AlgorithmSection runs its own
+  // algorithm through `useAlgorithmRun`, so leaving this ungated fired a second,
+  // identical request for the active algorithm on every parameter change —
+  // duplicate work on a single-threaded backend, which is exactly the
+  // contention this project already measured at 21s for a 20ms DBSCAN. Present
+  // mode mounts no sections, so there it is the only thing that would run.
   useEffect(() => {
-    if (!autoRun || points.length === 0) return;
+    if (!presenting || !autoRun || points.length === 0) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = window.setTimeout(() => void run(), 300);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [points, params[algorithm], algorithm, standardize, recordTrace, autoRun]);
+  }, [presenting, points, params[algorithm], algorithm, standardize, recordTrace, autoRun]);
 
   const result = results[algorithm] ?? null;
   const steps = useMemo(() => result?.trace.steps ?? [], [result]);

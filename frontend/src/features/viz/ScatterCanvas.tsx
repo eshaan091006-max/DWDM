@@ -27,7 +27,14 @@ export function ScatterCanvas({
   height = 520,
   caption,
   pointNames,
+  canvasRef: externalRef,
 }: {
+  /**
+   * Optional handle on the underlying canvas element, so a caller can act on
+   * this specific plot — exporting it, for instance — rather than reaching into
+   * the document and finding whichever canvas happens to be first.
+   */
+  canvasRef?: React.RefObject<HTMLCanvasElement | null>;
   points: number[][];
   labels: number[];
   pointTypes?: string[];
@@ -46,7 +53,10 @@ export function ScatterCanvas({
   /** Drawn into the canvas itself, so exported PNGs carry their parameters. */
   caption?: string;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const ownRef = useRef<HTMLCanvasElement | null>(null);
+  // Share one ref object with the caller when given, so both point at the same
+  // element rather than the caller holding a stale or empty handle.
+  const canvasRef = externalRef ?? ownRef;
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(600);
   const dragRef = useRef<number | null>(null);
@@ -180,6 +190,17 @@ export function ScatterCanvas({
     <div ref={wrapRef} className="w-full">
       <canvas
         ref={canvasRef}
+        // A canvas is opaque to assistive tech, so state the result in words.
+        // The legend and metrics beside it carry the numbers; this carries what
+        // the picture is and how many points are in it.
+        role="img"
+        aria-label={
+          points.length === 0
+            ? "Scatter plot, no data loaded"
+            : `Scatter plot of ${points.length} points${
+                caption ? `, clustered with ${caption}` : ", not yet clustered"
+              }. Cluster counts and quality scores are given in the panels beside this plot.`
+        }
         style={{
           borderRadius: "var(--clay-radius-lg)",
           background: "var(--clay-surface-sunken)",

@@ -19,7 +19,9 @@ export function ClayToggle({
         className="sr-only"
       />
       <span
-        className="relative inline-block w-11 h-6 shrink-0"
+        // The real checkbox is sr-only, so the focus ring is drawn on this
+        // track — the part the user can actually see.
+        className="clay-toggle-track relative inline-block w-11 h-6 shrink-0"
         style={{
           background: checked ? "var(--clay-accent)" : "var(--clay-surface-sunken)",
           borderRadius: 0,

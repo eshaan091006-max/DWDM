@@ -43,6 +43,16 @@
   --clay-accent-text: #ffffff;
   --clay-warn: #ff3b00;
   --clay-good: #00803a;
+  /*
+   * Text colours for the two status fills, chosen by measured contrast rather
+   * than by which looked right. At 11px bold these need 4.5:1.
+   *   ink on #ff3b00  = 5.44:1   (white on it is only 3.57:1)
+   *   white on #00803a = 5.06:1  (ink on it is only 3.52:1)
+   * So warn takes ink and good takes white — and good flips in the dark theme,
+   * where the green lightens to #00d861.
+   */
+  --clay-warn-text: #0d0d0d;
+  --clay-good-text: #ffffff;
 
   /* Brutalism has no rounding. These stay declared because components read
      them; they simply resolve to square. */
@@ -113,6 +123,8 @@
 
   --clay-accent-text: #0d0d0d;
   --clay-good: #00d861;
+  /* White on this lighter green is 1.91:1; ink on it is 10.18:1. */
+  --clay-good-text: #0d0d0d;
 
   --clay-shadow-sunken: inset 3px 3px 0 rgba(240, 237, 228, 0.12);
 }

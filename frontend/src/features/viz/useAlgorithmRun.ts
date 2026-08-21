@@ -29,6 +29,16 @@ export function useAlgorithmRun(algorithm: AlgorithmKey, inView: boolean) {
 
   const [busy, setBusy] = useState(false);
   const debounceRef = useRef<number | null>(null);
+  // Leaving Explore for Compare or Theory unmounts every section while its
+  // fetch may still be in flight. Without this the resolved promise writes back
+  // through a dead component's state setter.
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
 
   const run = useCallback(async () => {
     if (points.length === 0) return;
@@ -42,12 +52,14 @@ export function useAlgorithmRun(algorithm: AlgorithmKey, inView: boolean) {
         record_trace: recordTrace && points.length <= TRACE_LIMIT,
         standardize,
       });
+      // The store is global and outlives the section, so a completed result is
+      // still worth keeping; only the local busy flag must not be touched.
       setResult(algorithm, result);
       setError(null);
     } catch (caught) {
-      setError((caught as Error).message);
+      if (aliveRef.current) setError((caught as Error).message);
     } finally {
-      setBusy(false);
+      if (aliveRef.current) setBusy(false);
     }
   }, [algorithm, points, params, recordTrace, standardize, setResult, setError]);
 
@@ -61,6 +73,47 @@ export function useAlgorithmRun(algorithm: AlgorithmKey, inView: boolean) {
   }, [run, autoRun, inView, points.length]);
 
   return { run, busy };
+}
+
+/**
+ * Ramps 0 to 1 each time `key` changes, then holds at 1.
+ *
+ * CURE's overlay interpolates its representatives between their scattered and
+ * shrunken positions, but every call site passed a literal 1, so the shrink was
+ * only ever drawn at its end state — the one thing the algorithm is named for
+ * was never visible. Driving this from the playhead means landing on a shrink
+ * step plays the representatives inward.
+ *
+ * Under reduced motion it sits at 1: the final position, no movement.
+ */
+export function useStepProgress(key: unknown, durationMs = 280): number {
+  const [progress, setProgress] = useState(1);
+  const frameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const reduced =
+      typeof matchMedia === "function" &&
+      matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || durationMs <= 0) {
+      setProgress(1);
+      return;
+    }
+
+    const start = performance.now();
+    setProgress(0);
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      setProgress(t);
+      if (t < 1) frameRef.current = requestAnimationFrame(tick);
+    };
+    frameRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    };
+  }, [key, durationMs]);
+
+  return progress;
 }
 
 /**

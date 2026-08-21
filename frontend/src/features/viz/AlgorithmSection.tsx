@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 
 import { ClayBadge, ClayButton, ClayCard, Marquee, Tick } from "../../clay";
 import { formatMetric, formatMs, formatParams } from "../../lib/format";
@@ -15,7 +15,7 @@ import { ScatterCanvas } from "./ScatterCanvas";
 import { TracePlayer } from "./TracePlayer";
 import { overlayFor } from "./overlays";
 import type { SerialisedTree } from "./treeLayout";
-import { TRACE_LIMIT, useAlgorithmRun, useInView } from "./useAlgorithmRun";
+import { TRACE_LIMIT, useAlgorithmRun, useInView, useStepProgress } from "./useAlgorithmRun";
 
 const TITLE: Record<AlgorithmKey, string> = {
   dbscan: "DBSCAN",
@@ -49,6 +49,9 @@ export function AlgorithmSection({
   // the reveal. Revealing on the same early trigger means the transition has
   // finished before the section is fully in view, rather than animating under
   // the reader's eyes.
+  // Each section owns a handle on its own plot, so Export PNG saves this
+  // algorithm rather than whichever canvas is first in the document.
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { ref, seen } = useInView<HTMLElement>();
   const { run, busy } = useAlgorithmRun(algorithm, seen);
 
@@ -72,9 +75,12 @@ export function AlgorithmSection({
     return result?.labels ?? new Array<number>(shownPoints.length).fill(-1);
   }, [isActive, steps, playhead, shownPoints.length, result]);
 
+  // Sub-step progress drives CURE's shrink tween. Keyed on the playhead so each
+  // step replays the movement; inactive sections key on a constant and hold at 1.
+  const stepProgress = useStepProgress(isActive ? playhead : "idle");
   const overlay = useMemo(
-    () => overlayFor(algorithm, currentStep, shownPoints, 1),
-    [algorithm, currentStep, shownPoints],
+    () => overlayFor(algorithm, currentStep, shownPoints, stepProgress),
+    [algorithm, currentStep, shownPoints, stepProgress],
   );
 
   const caption = result ? formatParams(result.params_used) : undefined;
@@ -147,6 +153,7 @@ export function AlgorithmSection({
           className={`${isActive ? "clay-ring" : ""} ${busy ? "clay-scanning" : ""}`}
         >
           <ScatterCanvas
+            canvasRef={canvasRef}
             points={shownPoints}
             labels={shownLabels}
             pointTypes={result?.extras.point_types as string[] | undefined}
@@ -212,7 +219,7 @@ export function AlgorithmSection({
 
           {result && (
             <ClayCard title="Export" tilt={false}>
-              <ExportBar result={result} />
+              <ExportBar result={result} canvasRef={canvasRef} />
             </ClayCard>
           )}
         </div>

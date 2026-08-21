@@ -149,8 +149,16 @@ export const useAppStore = create<AppState>((set) => ({
       params: { ...s.params, [algorithm]: { ...s.params[algorithm], [name]: value } },
     })),
 
+  // Only the active algorithm's result may move the shared transport bar.
+  // Sections auto-run lazily as they scroll into view, so an unconditional
+  // reset meant that scrolling toward BIRCH while watching DBSCAN play would
+  // rewind and stop DBSCAN's playback when BIRCH's background run resolved —
+  // the transport pulled out from under the thing the user was watching.
   setResult: (algorithm, result) =>
-    set((s) => ({ results: { ...s.results, [algorithm]: result }, playhead: 0, isPlaying: false })),
+    set((s) => ({
+      results: { ...s.results, [algorithm]: result },
+      ...(algorithm === s.algorithm ? { playhead: 0, isPlaying: false } : {}),
+    })),
   setCompareResults: (compareResults) => set({ compareResults }),
 
   setPlayhead: (playhead) => set({ playhead }),

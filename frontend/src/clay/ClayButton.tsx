@@ -8,7 +8,9 @@ const TONES = {
     color: "var(--clay-accent-text)",
   },
   ghost: { background: "var(--clay-surface-raised)", color: "var(--clay-text)" },
-  danger: { background: "linear-gradient(140deg, var(--clay-warn), #f0a48f)", color: "#fff" },
+  // Flat warn fill with ink text: 5.44:1. White on it is 3.57:1, and the old
+  // gradient's pale end (#f0a48f) was worse still at roughly 2:1.
+  danger: { background: "var(--clay-warn)", color: "var(--clay-warn-text)" },
 } as const;
 
 export function ClayButton({

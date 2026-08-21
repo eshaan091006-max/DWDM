@@ -85,6 +85,46 @@ describe("clay tokens", () => {
     }
   });
 
+  it("meets 4.5:1 on every status fill, in both themes", () => {
+    // Badge text is 11px bold — normal size for WCAG, so 4.5:1 applies.
+    // White on the warn orange is only 3.57:1 and white on the dark theme's
+    // lighter green is 1.91:1, which is why these text colours are tokens
+    // rather than a hardcoded #fff.
+    const channel = (c: number) => {
+      const s = c / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    };
+    const luminance = (hex: string) => {
+      const n = parseInt(hex.slice(1), 16);
+      return (
+        0.2126 * channel((n >> 16) & 255) +
+        0.7152 * channel((n >> 8) & 255) +
+        0.0722 * (n & 255 ? channel(n & 255) : 0)
+      );
+    };
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const token = (name: string, scope = css) =>
+      scope.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`, "i"))?.[1];
+
+    const light = css.slice(0, css.indexOf('[data-theme="dark"]'));
+    const dark = css.slice(css.indexOf('[data-theme="dark"]'));
+
+    const pairs: [string, string, string][] = [
+      ["warn (light)", token("--clay-warn-text", light)!, token("--clay-warn", light)!],
+      ["good (light)", token("--clay-good-text", light)!, token("--clay-good", light)!],
+      ["good (dark)", token("--clay-good-text", dark)!, token("--clay-good", dark)!],
+    ];
+
+    for (const [label, fg, bg] of pairs) {
+      expect(fg, `${label}: missing token`).toBeTruthy();
+      expect(bg, `${label}: missing token`).toBeTruthy();
+      expect(ratio(fg, bg), `${label} contrast`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it("stops the marquee under prefers-reduced-motion", () => {
     const reduced = css.slice(css.indexOf("prefers-reduced-motion"));
     expect(reduced).toMatch(/\.clay-marquee-track/);

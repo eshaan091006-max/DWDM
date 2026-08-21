@@ -168,6 +168,29 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
+/*
+ * Focus indicators.
+ *
+ * `appearance: none` on a range strips Chromium's thumb focus ring, and the
+ * checkbox behind each toggle is clipped to 1px by `sr-only` — so both of the
+ * most-used control types were keyboard-focusable with no visible indication of
+ * it. Since the accent colour changes per algorithm and can sit against a filled
+ * accent background, the ring is drawn in ink with a paper-coloured offset,
+ * which stays visible on every surface in both themes.
+ */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--clay-ink);
+  outline-offset: 2px;
+}
+
+/* The toggle's real checkbox is visually hidden, so the ring has to be drawn on
+   the track the user actually sees. */
+.clay-toggle-track:has(input:focus-visible),
+label:has(> input.sr-only:focus-visible) .clay-toggle-track {
+  outline: 3px solid var(--clay-ink);
+  outline-offset: 2px;
+}
+
 /* Number fields and selects match the block language. */
 input[type="number"],
 select {
