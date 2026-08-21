@@ -6,7 +6,7 @@ export function NarrationLog({ steps, playhead }: { steps: TraceStep[]; playhead
   const lines = narrationLog(steps, playhead, 7);
 
   return (
-    <ClayCard title="What it is doing">
+    <ClayCard title="What it is doing" tilt={false}>
       {lines.length === 0 ? (
         <p className="text-xs" style={{ color: "var(--clay-text-faint)" }}>
           Press play to watch the algorithm narrate itself, step by step.

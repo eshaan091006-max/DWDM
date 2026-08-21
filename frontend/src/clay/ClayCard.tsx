@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { useTilt } from "./useTilt";
+
 export function ClayCard({
   children,
   title,
@@ -9,6 +11,7 @@ export function ClayCard({
   glow = false,
   delay = 0,
   accent,
+  tilt = true,
 }: {
   children: ReactNode;
   title?: string;
@@ -21,7 +24,11 @@ export function ClayCard({
   delay?: number;
   /** Small label above the title, e.g. a section marker. */
   accent?: string;
+  /** Cursor-tracked 3D tilt. Off for cards holding dense scrolling text. */
+  tilt?: boolean;
 }) {
+  const { ref, onMouseMove, onMouseLeave } = useTilt(glow ? 3 : 5);
+
   const shadow = glow
     ? "var(--clay-shadow-glow)"
     : tone === "sunken"
@@ -30,17 +37,19 @@ export function ClayCard({
 
   return (
     <section
-      className={`p-5 clay-rise ${className}`}
+      ref={ref as React.Ref<HTMLElement>}
+      onMouseMove={tilt ? onMouseMove : undefined}
+      onMouseLeave={tilt ? onMouseLeave : undefined}
+      className={`p-5 clay-rise ${tilt ? "clay-3d" : ""} ${className}`}
       style={{
         background: tone === "sunken" ? "var(--clay-surface-sunken)" : "var(--clay-surface)",
         borderRadius: "var(--clay-radius-lg)",
         boxShadow: shadow,
         animationDelay: `${delay}ms`,
-        transition: "box-shadow var(--clay-slow) ease, background var(--clay-slow) ease",
       }}
     >
       {(title || accent) && (
-        <header className="mb-3">
+        <header className="mb-3 clay-layer-1">
           {accent && (
             <div
               className="text-[10px] font-black uppercase tracking-[0.18em] mb-1"
@@ -64,7 +73,9 @@ export function ClayCard({
           )}
         </header>
       )}
-      {children}
+      <div className="relative" style={{ zIndex: 1 }}>
+        {children}
+      </div>
     </section>
   );
 }

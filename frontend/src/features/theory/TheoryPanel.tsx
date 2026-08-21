@@ -34,7 +34,7 @@ export function TheoryPanel({ algorithm }: { algorithm: AlgorithmKey }) {
   const { theory } = spec;
 
   return (
-    <ClayCard title={spec.label} subtitle={spec.tagline}>
+    <ClayCard title={spec.label} subtitle={spec.tagline} tilt={false}>
       <p className="text-sm leading-relaxed mb-5" style={{ color: "var(--clay-text)" }}>
         {theory.summary}
       </p>

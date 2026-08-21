@@ -31,7 +31,7 @@ export function ClayButton({
       title={title}
       disabled={disabled}
       onClick={onClick}
-      className={`font-bold tracking-tight select-none ${
+      className={`font-bold tracking-tight select-none clay-3d-btn ${
         size === "sm" ? "px-3 py-1.5 text-xs" : "px-4 py-2.5 text-sm"
       } ${disabled ? "opacity-45 cursor-not-allowed" : "cursor-pointer active:scale-[0.97]"}`}
       style={{

@@ -10,12 +10,11 @@ const DB_UNDEFINED = "Undefined here: Davies-Bouldin needs at least two clusters
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div
-      className="px-3 py-2.5"
+      className="px-3 py-2.5 clay-extrude"
       title={hint}
       style={{
-        background: "var(--clay-surface-sunken)",
+        background: "var(--clay-surface-raised)",
         borderRadius: "var(--clay-radius-sm)",
-        boxShadow: "var(--clay-shadow-sunken)",
       }}
     >
       <div
@@ -24,7 +23,10 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
       >
         {label}
       </div>
-      <div className="text-lg font-bold font-mono mt-0.5" style={{ color: "var(--clay-text)" }}>
+      <div
+        className="text-xl font-black font-mono mt-0.5 tracking-tight"
+        style={{ color: "var(--clay-text)" }}
+      >
         {value}
       </div>
     </div>

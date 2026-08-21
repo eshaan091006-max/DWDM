@@ -1,4 +1,5 @@
 export { Aurora } from "./Aurora";
+export { useTilt } from "./useTilt";
 export { ClayBadge } from "./ClayBadge";
 export { ClayButton } from "./ClayButton";
 export { ClayCard } from "./ClayCard";

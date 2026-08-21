@@ -137,6 +137,111 @@
   --clay-glow: rgba(232, 131, 214, 0.32);
 }
 
+/*
+ * Real 3D.
+ *
+ * `.clay-3d` reads four custom properties the tilt hook writes on mouse move:
+ * --rx/--ry for rotation, --mx/--my for where the specular highlight sits, and
+ * --lift for hover elevation. Everything animates on transform and opacity
+ * only, so it composites on the GPU and never triggers layout.
+ */
+.clay-3d {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 50%;
+  --spec: 0;
+  --lift: 0;
+  position: relative;
+  transform-style: preserve-3d;
+  transform: perspective(1200px) rotateX(var(--rx)) rotateY(var(--ry))
+    translateZ(calc(var(--lift) * 10px)) scale(calc(1 + var(--lift) * 0.006));
+  transition:
+    transform 260ms var(--clay-ease),
+    box-shadow 260ms ease;
+  will-change: transform;
+}
+
+/* The lit face. A soft-light wash that follows the cursor turns a matte slab
+   into something with a glossy, slightly wet clay surface. */
+.clay-3d::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    460px circle at var(--mx) var(--my),
+    rgba(255, 255, 255, 0.55),
+    transparent 46%
+  );
+  opacity: var(--spec);
+  transition: opacity 260ms ease;
+  mix-blend-mode: soft-light;
+  z-index: 2;
+}
+
+:root[data-theme="dark"] .clay-3d::after {
+  background: radial-gradient(
+    460px circle at var(--mx) var(--my),
+    color-mix(in srgb, var(--clay-accent) 55%, white),
+    transparent 46%
+  );
+  opacity: calc(var(--spec) * 0.32);
+  mix-blend-mode: screen;
+}
+
+/* A physically extruded edge: stacked hairline shadows build a bevel, then a
+   real drop shadow puts the whole slab above the page. */
+.clay-extrude {
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--clay-dark) 55%, transparent),
+    0 2px 0 color-mix(in srgb, var(--clay-dark) 40%, transparent),
+    0 3px 0 color-mix(in srgb, var(--clay-dark) 26%, transparent),
+    0 4px 0 color-mix(in srgb, var(--clay-dark) 14%, transparent),
+    0 10px 22px var(--clay-drop),
+    inset 2px 2px 5px var(--clay-light),
+    inset -2px -3px 7px var(--clay-dark);
+  transform: translateZ(24px);
+  transition: transform 260ms var(--clay-ease);
+}
+
+.clay-3d:hover .clay-extrude {
+  transform: translateZ(34px);
+}
+
+/* Content that should float above the card face in 3D. */
+.clay-layer-1 {
+  transform: translateZ(16px);
+}
+.clay-layer-2 {
+  transform: translateZ(30px);
+}
+
+/* Chunky pressable button geometry: a solid coloured edge underneath that
+   collapses when pressed, so the button visibly travels downward. */
+.clay-3d-btn {
+  position: relative;
+  transform: translateY(0);
+  transition:
+    transform 90ms var(--clay-ease),
+    box-shadow 90ms ease;
+}
+.clay-3d-btn:not(:disabled):hover {
+  transform: translateY(-2px);
+}
+.clay-3d-btn:not(:disabled):active {
+  transform: translateY(3px);
+}
+
+.clay-title-3d {
+  text-shadow:
+    0 1px 0 color-mix(in srgb, var(--clay-dark) 40%, transparent),
+    0 2px 0 color-mix(in srgb, var(--clay-dark) 26%, transparent),
+    0 3px 0 color-mix(in srgb, var(--clay-dark) 14%, transparent),
+    0 8px 18px var(--clay-drop);
+}
+
 @keyframes clay-rise {
   from {
     opacity: 0;
@@ -277,5 +382,20 @@
   .clay-display,
   .clay-aurora span {
     animation: none !important;
+  }
+  /* Tilt is motion too: flatten it entirely rather than merely shortening it. */
+  .clay-3d {
+    transform: none !important;
+    transition: none !important;
+  }
+  .clay-3d::after {
+    opacity: 0 !important;
+  }
+  .clay-extrude,
+  .clay-layer-1,
+  .clay-layer-2,
+  .clay-3d-btn {
+    transform: none !important;
+    transition: none !important;
   }
 }

@@ -145,7 +145,7 @@ export default function App() {
         }}
       >
         <div className="flex items-baseline gap-3">
-          <h1 className="clay-display text-2xl font-black tracking-tighter">
+          <h1 className="clay-display clay-title-3d text-2xl font-black tracking-tighter">
             Clustering&nbsp;Explorer
           </h1>
           <span
