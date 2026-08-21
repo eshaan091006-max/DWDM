@@ -79,6 +79,29 @@ def test_to_display_2d_pads_one_dimensional_data():
     assert ratio is None
 
 
+def test_pca_always_returns_the_requested_width_for_a_single_point():
+    # The SVD of a single centred point has rank 0, so only one component comes
+    # back. Callers read [x, y] from every row, so a one-column result would be
+    # a silently malformed point rather than a visible failure.
+    projected, ratio = pca(np.array([[1.0, 2.0, 3.0, 4.0, 5.0]]), n_components=2)
+    assert projected.shape == (1, 2)
+    assert len(ratio) == 2
+    assert np.all(np.isfinite(projected))
+
+
+def test_pca_pads_when_there_are_fewer_points_than_components():
+    projected, ratio = pca(np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]), n_components=3)
+    assert projected.shape == (2, 3)
+    assert len(ratio) == 3
+
+
+def test_to_display_2d_gives_two_columns_for_a_lone_high_dimensional_point():
+    # The contract the scatter plot depends on, at the most degenerate input.
+    shown, ratio = to_display_2d(np.array([[1.0, 2.0, 3.0, 4.0, 5.0]]))
+    assert shown.shape == (1, 2)
+    assert ratio is not None and len(ratio) == 2
+
+
 def test_to_display_2d_projects_high_dimensional_data():
     rng = np.random.default_rng(5)
     X = rng.normal(size=(50, 7))

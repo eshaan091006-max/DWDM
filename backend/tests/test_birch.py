@@ -225,9 +225,29 @@ def test_single_point_and_duplicates():
 
 
 def test_n_clusters_above_leaf_count_is_clamped():
+    """Asking for more clusters than there are leaf entries must clamp to the
+    entries available, and must report that clamped figure.
+
+    The obvious assertion — that the label count stays below the point count —
+    is vacuous: the merge loop's own `while len(active) > n_clusters` condition
+    already guarantees it whether or not the clamp exists. What the clamp
+    actually governs is the reported cluster count, so that is what to assert.
+    """
     X, _ = generate("blobs", n_samples=30, random_seed=0)
-    result = birch(X, threshold=5.0, branching_factor=8, n_clusters=99, record_trace=False)
-    assert len(set(result.labels)) <= 30
+    # A coarse threshold keeps the leaf count well under the 99 requested.
+    result = birch(X, threshold=1.2, branching_factor=8, n_clusters=99, record_trace=True)
+
+    leaves = result.extras["n_leaf_entries"]
+    assert leaves < 99, "fixture no longer exercises the clamp; lower the threshold"
+    assert len(set(result.labels)) == leaves
+
+    # The labels above are the same with or without the clamp, because the merge
+    # loop stops on its own once it runs out of clusters to merge. What the
+    # clamp genuinely controls is the figure BIRCH reports for phase 2 — an
+    # unclamped run would announce 99 clusters while producing `leaves` of them.
+    phase2 = next(s for s in result.trace["steps"] if s["kind"] == "global_cluster")
+    assert phase2["payload"]["n_clusters"] == leaves
+    assert f"{leaves} cluster" in phase2["narration"]
 
 
 def test_invalid_parameters_are_rejected():

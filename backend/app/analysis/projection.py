@@ -35,6 +35,20 @@ def pca(X: np.ndarray, n_components: int = 2) -> tuple[np.ndarray, np.ndarray]:
         if total <= 0.0
         else variances[:n_components] / total
     )
+
+    # The SVD yields only min(n, d) components, so rank-deficient input — a
+    # single point, or fewer points than requested components — would otherwise
+    # return a narrower array than the caller asked for. Callers treat this as a
+    # fixed-width contract: `to_display_2d` promises two columns and the plot
+    # reads [x, y] from every row, so a one-column result is a silently
+    # malformed point rather than a visible error. Pad the missing components
+    # with zeros, which is the honest value: those axes carry no variance.
+    if projected.shape[1] < n_components:
+        pad = np.zeros((projected.shape[0], n_components - projected.shape[1]))
+        projected = np.hstack([projected, pad])
+    if ratio.shape[0] < n_components:
+        ratio = np.concatenate([ratio, np.zeros(n_components - ratio.shape[0])])
+
     return projected, ratio
 
 
