@@ -140,14 +140,14 @@ export function MetricsPanel({ result }: { result: ClusterResponse | null }) {
             className="inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-bold"
             style={{
               background: "var(--clay-surface-raised)",
-              borderRadius: "999px",
+              borderRadius: 0,
               boxShadow: "var(--clay-shadow)",
               color: "var(--clay-text)",
             }}
           >
             <span
               className="inline-block w-2.5 h-2.5"
-              style={{ background: clusterColor(Number(id)), borderRadius: "999px" }}
+              style={{ background: clusterColor(Number(id)), borderRadius: 0 }}
             />
             {size}
           </span>

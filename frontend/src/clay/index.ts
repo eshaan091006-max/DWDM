@@ -1,4 +1,5 @@
 export { Aurora } from "./Aurora";
+export { Marquee, Tick } from "./Marquee";
 export { useTilt } from "./useTilt";
 export { useMagnetic } from "./useMagnetic";
 export { useCountUp } from "./useCountUp";

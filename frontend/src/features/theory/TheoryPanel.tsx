@@ -48,7 +48,7 @@ export function TheoryPanel({ algorithm }: { algorithm: AlgorithmKey }) {
                 style={{
                   background: "var(--clay-accent-soft)",
                   color: "var(--clay-accent)",
-                  borderRadius: "999px",
+                  borderRadius: 0,
                 }}
               >
                 {index + 1}

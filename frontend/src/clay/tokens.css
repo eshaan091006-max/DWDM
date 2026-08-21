@@ -1,226 +1,173 @@
 /*
- * Claymorphism design tokens.
+ * BRUTALIST DESIGN TOKENS
  *
- * The look comes from THREE layered shadows on every surface, not one:
- *   1. a soft outer drop shadow, which lifts the surface off the page
- *   2. an inner light highlight on the top-left, reading as a lit edge
- *   3. an inner dark occlusion on the bottom-right, reading as thickness
- * Together they make a surface look like a pressed slab of clay rather than a
- * flat card. Pressed states invert the inner pair so the surface reads as
- * pushed in. Collapsing these to a single box-shadow loses the whole effect.
+ * This replaces the claymorphism world rather than softening it. Every choice is
+ * the inverse of what was here: square instead of rounded, hard offset shadows
+ * instead of blurred halos, ink borders instead of glows, monospace instead of
+ * rounded humanist type, one harsh accent instead of a pastel gradient.
  *
- * The accent is not fixed: `data-algo` on the root retints the entire UI to the
- * algorithm being explored. That is decorative and functional at once — the
- * colour of the chrome always tells you which algorithm you are looking at.
+ * The rules that make it hold together:
+ *   - Radius is 0. Not "small" — zero. One exception is the round dot in the
+ *     cluster legend, which must match the round points on the canvas.
+ *   - Every surface carries a visible ink border. Structure is exposed, not
+ *     implied by shadow.
+ *   - Shadows have no blur. `6px 6px 0` reads as a physical offset block, and
+ *     pressing collapses it to `0 0 0` so the control genuinely moves.
+ *   - Colour is near-monochrome plus ONE saturated accent, which `data-algo`
+ *     swaps per algorithm. No gradients between accents.
+ *
+ * Token and class names are unchanged from the previous world so no component
+ * needs editing: the visual language is swapped underneath them.
  */
 
 :root {
   color-scheme: light;
 
-  --clay-bg: #eaecf7;
-  --clay-bg-deep: #dfe3f2;
-  --clay-surface: #f4f5fb;
+  --clay-ink: #0d0d0d;
+  --clay-paper: #eae7de;
+
+  --clay-bg: var(--clay-paper);
+  --clay-bg-deep: #ddd9cd;
+  --clay-surface: #f4f2ec;
   --clay-surface-raised: #ffffff;
-  --clay-surface-sunken: #e5e8f4;
+  --clay-surface-sunken: #ddd9cd;
 
-  --clay-text: #23263c;
-  --clay-text-muted: #666c8d;
-  --clay-text-faint: #9298b8;
+  --clay-text: var(--clay-ink);
+  --clay-text-muted: #3d3d3a;
+  --clay-text-faint: #6f6f68;
 
-  --clay-accent: #7c6cf0;
-  --clay-accent-2: #a78bfa;
-  --clay-accent-soft: #ded9ff;
+  /* Default accent. `data-algo` overrides it per algorithm below. */
+  --clay-accent: #ff3b00;
+  --clay-accent-2: #ff3b00;
+  --clay-accent-soft: #ffe2d9;
   --clay-accent-text: #ffffff;
-  --clay-glow: rgba(124, 108, 240, 0.4);
+  --clay-warn: #ff3b00;
+  --clay-good: #00803a;
 
-  --clay-warn: #e8846b;
-  --clay-good: #4fb08a;
+  /* Brutalism has no rounding. These stay declared because components read
+     them; they simply resolve to square. */
+  --clay-radius-sm: 0px;
+  --clay-radius: 0px;
+  --clay-radius-lg: 0px;
+  --clay-radius-xl: 0px;
 
-  --clay-radius-sm: 14px;
-  --clay-radius: 22px;
-  --clay-radius-lg: 30px;
-  --clay-radius-xl: 40px;
+  --clay-border: 2px solid var(--clay-ink);
+  --clay-border-thick: 3px solid var(--clay-ink);
 
-  --clay-light: rgba(255, 255, 255, 0.95);
-  --clay-dark: rgba(84, 90, 130, 0.28);
-  --clay-drop: rgba(84, 90, 130, 0.22);
+  --clay-light: transparent;
+  --clay-dark: var(--clay-ink);
+  --clay-drop: var(--clay-ink);
+  --clay-glow: transparent;
 
-  --clay-shadow:
-    6px 6px 18px var(--clay-drop),
-    inset 2px 2px 4px var(--clay-light),
-    inset -3px -3px 7px var(--clay-dark);
+  /* Hard offset blocks, zero blur. The whole material logic of the UI. */
+  --clay-shadow: 5px 5px 0 var(--clay-ink);
+  --clay-shadow-lg: 9px 9px 0 var(--clay-ink);
+  --clay-shadow-glow: 9px 9px 0 var(--clay-accent);
+  --clay-shadow-pressed: 0 0 0 var(--clay-ink);
+  --clay-shadow-sunken: inset 3px 3px 0 rgba(13, 13, 13, 0.14);
 
-  --clay-shadow-lg:
-    16px 20px 44px var(--clay-drop),
-    inset 3px 3px 7px var(--clay-light),
-    inset -5px -6px 12px var(--clay-dark);
+  --clay-ease: cubic-bezier(0.2, 0, 0, 1);
+  --clay-fast: 80ms;
+  --clay-slow: 140ms;
 
-  --clay-shadow-pressed:
-    inset 5px 5px 12px var(--clay-dark),
-    inset -3px -3px 8px var(--clay-light);
-
-  --clay-shadow-sunken:
-    inset 4px 4px 10px var(--clay-dark),
-    inset -2px -2px 6px var(--clay-light);
-
-  --clay-shadow-glow:
-    0 0 0 1px color-mix(in srgb, var(--clay-accent) 18%, transparent),
-    0 10px 40px var(--clay-glow),
-    16px 20px 44px var(--clay-drop),
-    inset 3px 3px 7px var(--clay-light),
-    inset -5px -6px 12px var(--clay-dark);
-
-  --clay-ease: cubic-bezier(0.34, 1.3, 0.64, 1);
-  --clay-fast: 130ms;
-  --clay-slow: 220ms;
-  --clay-rise: 520ms;
+  --clay-font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  --clay-font-display: "Arial Black", "Helvetica Neue", Helvetica, Impact, sans-serif;
 }
 
-/* Each algorithm owns a hue. Switching tabs recolours the whole interface. */
+/* Per-algorithm accent. One flat colour each — no gradient pairs. */
 :root[data-algo="dbscan"] {
-  --clay-accent: #7c6cf0;
-  --clay-accent-2: #a78bfa;
-  --clay-accent-soft: #ded9ff;
-  --clay-glow: rgba(124, 108, 240, 0.4);
+  --clay-accent: #ff3b00;
+  --clay-accent-2: #ff3b00;
+  --clay-accent-soft: #ffe2d9;
+  --clay-accent-text: #ffffff;
 }
 :root[data-algo="birch"] {
-  --clay-accent: #16a085;
-  --clay-accent-2: #48d1b0;
-  --clay-accent-soft: #cdf2e8;
-  --clay-glow: rgba(22, 160, 133, 0.38);
+  --clay-accent: #0033ff;
+  --clay-accent-2: #0033ff;
+  --clay-accent-soft: #dbe2ff;
+  --clay-accent-text: #ffffff;
 }
 :root[data-algo="cure"] {
-  --clay-accent: #b3459f;
-  --clay-accent-2: #e07fd0;
-  --clay-accent-soft: #f7dcf3;
-  --clay-glow: rgba(179, 69, 159, 0.38);
+  --clay-accent: #b400c8;
+  --clay-accent-2: #b400c8;
+  --clay-accent-soft: #f6dcfa;
+  --clay-accent-text: #ffffff;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --clay-bg: #14172a;
-  --clay-bg-deep: #0e1020;
-  --clay-surface: #232741;
-  --clay-surface-raised: #2c3150;
-  --clay-surface-sunken: #1a1d33;
+  --clay-ink: #f0ede4;
+  --clay-paper: #0d0d0d;
 
-  --clay-text: #eef0ff;
-  --clay-text-muted: #a3aacd;
-  --clay-text-faint: #6f76a0;
+  --clay-bg: var(--clay-paper);
+  --clay-bg-deep: #000000;
+  --clay-surface: #151513;
+  --clay-surface-raised: #1e1e1b;
+  --clay-surface-sunken: #000000;
 
-  --clay-accent-text: #10122a;
+  --clay-text: var(--clay-ink);
+  --clay-text-muted: #b9b6ac;
+  --clay-text-faint: #7c7a72;
 
-  /* In dark mode the "lit edge" is a faint white wash rather than near-white,
-     otherwise every surface reads as outlined instead of moulded. */
-  --clay-light: rgba(255, 255, 255, 0.06);
-  --clay-dark: rgba(0, 0, 0, 0.55);
-  --clay-drop: rgba(0, 0, 0, 0.5);
+  --clay-accent-text: #0d0d0d;
+  --clay-good: #00d861;
+
+  --clay-shadow-sunken: inset 3px 3px 0 rgba(240, 237, 228, 0.12);
 }
 
 :root[data-theme="dark"][data-algo="dbscan"] {
-  --clay-accent: #9d90ff;
-  --clay-accent-2: #c4b5fd;
-  --clay-accent-soft: #33305c;
-  --clay-glow: rgba(157, 144, 255, 0.35);
+  --clay-accent: #ff5c2b;
+  --clay-accent-2: #ff5c2b;
+  --clay-accent-soft: #3a1508;
 }
 :root[data-theme="dark"][data-algo="birch"] {
-  --clay-accent: #3fd9b6;
-  --clay-accent-2: #7defd0;
-  --clay-accent-soft: #14453c;
-  --clay-glow: rgba(63, 217, 182, 0.32);
+  --clay-accent: #4d7bff;
+  --clay-accent-2: #4d7bff;
+  --clay-accent-soft: #0d1a3d;
 }
 :root[data-theme="dark"][data-algo="cure"] {
-  --clay-accent: #e883d6;
-  --clay-accent-2: #f5b8ea;
-  --clay-accent-soft: #4a1f43;
-  --clay-glow: rgba(232, 131, 214, 0.32);
+  --clay-accent: #e04dff;
+  --clay-accent-2: #e04dff;
+  --clay-accent-soft: #2e0a35;
 }
+
+/* ---------------------------------------------------------------- surfaces */
 
 /*
- * Real 3D.
- *
- * `.clay-3d` reads four custom properties the tilt hook writes on mouse move:
- * --rx/--ry for rotation, --mx/--my for where the specular highlight sits, and
- * --lift for hover elevation. Everything animates on transform and opacity
- * only, so it composites on the GPU and never triggers layout.
+ * Every card is a bordered block sitting on a hard shadow. Hovering nudges it
+ * against the shadow rather than lifting it — the block stays on the page.
  */
 .clay-3d {
-  --rx: 0deg;
-  --ry: 0deg;
-  --mx: 50%;
-  --my: 50%;
-  --spec: 0;
-  --lift: 0;
-  position: relative;
-  transform-style: preserve-3d;
-  transform: perspective(1200px) rotateX(var(--rx)) rotateY(var(--ry))
-    translateZ(calc(var(--lift) * 10px)) scale(calc(1 + var(--lift) * 0.006));
+  border: var(--clay-border);
   transition:
-    transform 260ms var(--clay-ease),
-    box-shadow 260ms ease;
-  will-change: transform;
+    transform var(--clay-fast) var(--clay-ease),
+    box-shadow var(--clay-fast) var(--clay-ease);
+}
+.clay-3d:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--clay-ink);
 }
 
-/* The lit face. A soft-light wash that follows the cursor turns a matte slab
-   into something with a glossy, slightly wet clay surface. */
-.clay-3d::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: radial-gradient(
-    460px circle at var(--mx) var(--my),
-    rgba(255, 255, 255, 0.55),
-    transparent 46%
-  );
-  opacity: var(--spec);
-  transition: opacity 260ms ease;
-  mix-blend-mode: soft-light;
-  z-index: 2;
-}
-
-:root[data-theme="dark"] .clay-3d::after {
-  background: radial-gradient(
-    460px circle at var(--mx) var(--my),
-    color-mix(in srgb, var(--clay-accent) 55%, white),
-    transparent 46%
-  );
-  opacity: calc(var(--spec) * 0.32);
-  mix-blend-mode: screen;
-}
-
-/* A physically extruded edge: stacked hairline shadows build a bevel, then a
-   real drop shadow puts the whole slab above the page. */
-.clay-extrude {
-  box-shadow:
-    0 1px 0 color-mix(in srgb, var(--clay-dark) 55%, transparent),
-    0 2px 0 color-mix(in srgb, var(--clay-dark) 40%, transparent),
-    0 3px 0 color-mix(in srgb, var(--clay-dark) 26%, transparent),
-    0 4px 0 color-mix(in srgb, var(--clay-dark) 14%, transparent),
-    0 10px 22px var(--clay-drop),
-    inset 2px 2px 5px var(--clay-light),
-    inset -2px -3px 7px var(--clay-dark);
-  transform: translateZ(24px);
-  transition: transform 260ms var(--clay-ease);
-}
-
-.clay-3d:hover .clay-extrude {
-  transform: translateZ(34px);
-}
-
-/* Content that should float above the card face in 3D. */
-.clay-layer-1 {
-  transform: translateZ(16px);
-}
+/* The layered-depth helpers from the clay world have no depth to express here.
+   They stay as no-ops so components keep their class hooks. */
+.clay-layer-1,
 .clay-layer-2 {
-  transform: translateZ(30px);
+  transform: none;
 }
 
-/* Chunky pressable button geometry: a solid coloured edge underneath that
-   collapses when pressed, so the button visibly travels downward. */
+/* Stat tiles: inset blocks, ruled off rather than embossed. */
+.clay-extrude {
+  border: var(--clay-border);
+  box-shadow: 3px 3px 0 var(--clay-ink);
+}
+
+/* ---------------------------------------------------------------- controls */
+
 .clay-magnetic {
+  /* Brutalist controls do not chase the cursor. The variables stay declared so
+     the hook that writes them has somewhere to write. */
   --mag-x: 0px;
   --mag-y: 0px;
   --press: 0px;
@@ -228,167 +175,99 @@
 
 .clay-3d-btn {
   position: relative;
-  transform: translate3d(var(--mag-x), calc(var(--mag-y) + var(--press)), 0);
+  border: var(--clay-border);
+  font-family: var(--clay-font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transform: translate(0, 0);
   transition:
-    transform 160ms var(--clay-ease),
-    box-shadow 90ms ease,
-    filter 160ms ease;
+    transform var(--clay-fast) var(--clay-ease),
+    box-shadow var(--clay-fast) var(--clay-ease);
 }
 .clay-3d-btn:not(:disabled):hover {
-  --press: -2px;
-  filter: saturate(1.15) brightness(1.03);
+  transform: translate(-1px, -1px);
+  box-shadow: 6px 6px 0 var(--clay-ink);
 }
+/* Press drives the block into its own shadow: the offset goes to zero and the
+   element moves exactly that far. Nothing else in the UI moves. */
 .clay-3d-btn:not(:disabled):active {
-  --press: 3px;
-  transition-duration: 60ms;
+  transform: translate(5px, 5px);
+  box-shadow: 0 0 0 var(--clay-ink);
 }
 
-.clay-title-3d {
-  text-shadow:
-    0 1px 0 color-mix(in srgb, var(--clay-dark) 40%, transparent),
-    0 2px 0 color-mix(in srgb, var(--clay-dark) 26%, transparent),
-    0 3px 0 color-mix(in srgb, var(--clay-dark) 14%, transparent),
-    0 8px 18px var(--clay-drop);
+/* ------------------------------------------------------------------ accents */
+
+/*
+ * The spinning rim light is gone. `clay-ring` now marks the active block with a
+ * thick accent border and a matching offset shadow — louder than the glow was,
+ * and it holds still.
+ */
+.clay-ring {
+  border: 3px solid var(--clay-accent) !important;
+  box-shadow: 9px 9px 0 var(--clay-accent) !important;
+}
+
+/* While a trace plays, the accent block flashes between two hard offsets.
+   A step change, not a fade. */
+@keyframes clay-heartbeat {
+  0%,
+  49% {
+    box-shadow: 9px 9px 0 var(--clay-accent);
+  }
+  50%,
+  100% {
+    box-shadow: 4px 4px 0 var(--clay-accent);
+  }
+}
+.clay-beating {
+  animation: clay-heartbeat 900ms steps(1, end) infinite;
 }
 
 /*
- * A conic gradient that rotates around the hero card's rim.
- *
- * Drawn on a padded pseudo-element behind the card and masked to a 2px ring, so
- * it reads as light raking around the edge of the slab rather than a border.
- * The hue comes from the active algorithm, so the ring recolours with the UI.
+ * Background: a hard grid, not an aurora. Ruled lines on the paper, the way
+ * engineering drawing stock is ruled.
  */
-@property --clay-spin {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
-.clay-ring {
-  position: relative;
-}
-
-.clay-ring::before {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  padding: 2px;
-  background: conic-gradient(
-    from var(--clay-spin),
-    transparent 0deg,
-    var(--clay-accent) 40deg,
-    var(--clay-accent-2) 90deg,
-    transparent 150deg,
-    transparent 210deg,
-    var(--clay-accent-2) 270deg,
-    var(--clay-accent) 320deg,
-    transparent 360deg
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  animation: clay-spin 6s linear infinite;
+.clay-aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
   pointer-events: none;
-  z-index: 3;
-  opacity: 0.9;
+  opacity: 0.5;
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--clay-ink) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--clay-ink) 8%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
 }
 
-@keyframes clay-spin {
-  to {
-    --clay-spin: 360deg;
-  }
-}
-
-/* Fine grain over the whole app. Clay is a material; a little tooth stops the
-   large flat surfaces from looking like plastic. */
+/* Coarse mechanical grain — halftone, not film. */
 .clay-grain {
   position: fixed;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  opacity: 0.035;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='1' height='1' fill='%23000'/%3E%3C/svg%3E");
 }
 
-/* The whole panel tumbles when you switch algorithm. */
-@keyframes clay-flip {
-  0% {
-    opacity: 0;
-    transform: perspective(1000px) rotateY(-16deg) translateZ(-40px);
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-  }
-}
+/* ----------------------------------------------------------------- motion */
 
-.clay-flip {
-  animation: clay-flip 420ms var(--clay-ease) both;
-}
-
-/* A soft breath on the hero card while a trace is playing, so the interface
-   feels alive exactly while the algorithm is running. */
-@keyframes clay-heartbeat {
-  0%,
-  100% {
-    box-shadow: var(--clay-shadow-glow);
-  }
-  50% {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--clay-accent) 34%, transparent),
-      0 14px 60px var(--clay-glow),
-      16px 20px 44px var(--clay-drop),
-      inset 3px 3px 7px var(--clay-light),
-      inset -5px -6px 12px var(--clay-dark);
-  }
-}
-
-.clay-beating {
-  animation: clay-heartbeat 1.4s ease-in-out infinite;
-}
-
+/* Entrances are cuts, not fades: the block arrives offset and snaps into place. */
 @keyframes clay-rise {
   from {
     opacity: 0;
-    transform: translateY(18px) scale(0.985);
+    transform: translate(-6px, 6px);
   }
   to {
     opacity: 1;
     transform: none;
   }
 }
-
-@keyframes clay-drift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  33% {
-    transform: translate3d(4%, -6%, 0) scale(1.08);
-  }
-  66% {
-    transform: translate3d(-5%, 4%, 0) scale(0.95);
-  }
+.clay-rise {
+  animation: clay-rise 140ms var(--clay-ease) both;
 }
 
-@keyframes clay-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 var(--clay-glow);
-  }
-  50% {
-    box-shadow: 0 0 0 12px transparent;
-  }
-}
-
-@keyframes clay-slide-in {
+@keyframes clay-flip {
   from {
     opacity: 0;
     transform: translateX(-10px);
@@ -398,130 +277,252 @@
     transform: none;
   }
 }
-
-.clay-rise {
-  animation: clay-rise var(--clay-rise) var(--clay-ease) both;
+.clay-flip {
+  animation: clay-flip 140ms var(--clay-ease) both;
 }
 
+@keyframes clay-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 .clay-slide-in {
-  animation: clay-slide-in var(--clay-slow) var(--clay-ease) both;
+  animation: clay-slide-in 140ms var(--clay-ease) both;
 }
 
+@keyframes clay-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
 .clay-pulse {
-  animation: clay-pulse 2.4s ease-out infinite;
+  animation: clay-pulse 800ms steps(2, end) infinite;
 }
 
-/* The aurora field behind the clay. Purely decorative, so it is aria-hidden in
-   the markup and sits under everything at low opacity. */
-.clay-aurora {
-  position: fixed;
-  inset: -20%;
-  z-index: 0;
-  pointer-events: none;
-  filter: blur(70px);
-  opacity: 0.5;
+/* ---------------------------------------------------------------- marquee */
+
+.clay-marquee {
+  overflow: hidden;
+  white-space: nowrap;
+  border-top: var(--clay-border);
+  border-bottom: var(--clay-border);
+  font-family: var(--clay-font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 5px 0;
+  /* The track is twice the visible width; without this the parent would size to
+     it and blow out the layout. */
+  max-width: 100%;
 }
 
-.clay-aurora span {
-  position: absolute;
-  display: block;
-  border-radius: 50%;
-  animation: clay-drift 22s ease-in-out infinite;
+.clay-marquee-track {
+  display: inline-flex;
+  animation-name: clay-marquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
   will-change: transform;
 }
 
-:root[data-theme="dark"] .clay-aurora {
-  opacity: 0.42;
+/* Each copy holds the full run of items; -50% lands the second exactly where
+   the first started. */
+.clay-marquee-run {
+  display: inline-flex;
+  flex-shrink: 0;
 }
 
-/* Scrollbars styled to match the clay, on the rails that scroll independently. */
+@keyframes clay-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.clay-tick {
+  display: inline-flex;
+  align-items: center;
+}
+.clay-tick-sep {
+  padding: 0 1.1em;
+  opacity: 0.45;
+}
+
+/* Pause on hover so a viewer can actually read a value that went past. */
+.clay-marquee:hover .clay-marquee-track {
+  animation-play-state: paused;
+}
+
+/* ----------------------------------------------------------------- effects */
+
+/*
+ * A one-shot chromatic tear. Fired when a fresh result lands, so the moment the
+ * numbers change is impossible to miss during a demo.
+ */
+@keyframes clay-glitch {
+  0% {
+    text-shadow: 3px 3px 0 var(--clay-accent);
+    transform: translate(0, 0);
+  }
+  20% {
+    text-shadow:
+      -3px 0 0 #00e5ff,
+      3px 0 0 var(--clay-accent);
+    transform: translate(2px, -1px);
+  }
+  40% {
+    text-shadow:
+      3px 0 0 #00e5ff,
+      -3px 0 0 var(--clay-accent);
+    transform: translate(-2px, 1px);
+  }
+  60% {
+    text-shadow:
+      -2px 0 0 var(--clay-accent),
+      2px 0 0 #00e5ff;
+    transform: translate(1px, 0);
+  }
+  100% {
+    text-shadow: 3px 3px 0 var(--clay-accent);
+    transform: translate(0, 0);
+  }
+}
+.clay-glitch {
+  animation: clay-glitch 320ms steps(2, end) 1;
+}
+
+/* A block cursor that blinks like a terminal, parked after live narration. */
+@keyframes clay-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+.clay-caret::after {
+  content: "\2588";
+  margin-left: 0.15em;
+  color: var(--clay-accent);
+  animation: clay-blink 900ms steps(1, end) infinite;
+}
+
+/* Result blocks land like a stamp rather than fading in. */
+@keyframes clay-stamp {
+  0% {
+    transform: scale(1.06);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(0.985);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.clay-stamp {
+  animation: clay-stamp 200ms var(--clay-ease) both;
+}
+
+/* A hard sweep across a block while its algorithm is computing. */
+@keyframes clay-scan {
+  from {
+    background-position: -140% 0;
+  }
+  to {
+    background-position: 240% 0;
+  }
+}
+.clay-scanning {
+  background-image: linear-gradient(
+    100deg,
+    transparent 40%,
+    color-mix(in srgb, var(--clay-accent) 26%, transparent) 50%,
+    transparent 60%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: clay-scan 900ms linear infinite;
+}
+
+/* ------------------------------------------------------------------- type */
+
+.clay-display {
+  font-family: var(--clay-font-display);
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+}
+
+/* The extruded title becomes a hard drop, offset in the accent. */
+.clay-title-3d {
+  color: var(--clay-text);
+  text-shadow: 3px 3px 0 var(--clay-accent);
+}
+
+/* ---------------------------------------------------------------- scrollbar */
+
 .clay-scroll {
-  overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--clay-accent) transparent;
+  scrollbar-color: var(--clay-ink) transparent;
 }
 .clay-scroll::-webkit-scrollbar {
-  width: 10px;
+  width: 12px;
+  height: 12px;
 }
 .clay-scroll::-webkit-scrollbar-track {
   background: transparent;
+  border-left: var(--clay-border);
 }
 .clay-scroll::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--clay-accent) 55%, transparent);
-  border-radius: 999px;
-  border: 3px solid transparent;
-  background-clip: content-box;
-}
-.clay-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--clay-accent);
-  background-clip: content-box;
-}
-
-.clay-display {
-  background: linear-gradient(
-    100deg,
-    var(--clay-text) 0%,
-    var(--clay-accent) 45%,
-    var(--clay-accent-2) 75%,
-    var(--clay-text) 100%
-  );
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: clay-sheen 9s ease-in-out infinite;
-}
-
-@keyframes clay-sheen {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
+  background: var(--clay-ink);
+  border-radius: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root {
-    --clay-fast: 0ms;
-    --clay-slow: 0ms;
-    --clay-rise: 0ms;
-  }
   .clay-rise,
+  .clay-flip,
   .clay-slide-in,
   .clay-pulse,
-  .clay-display,
-  .clay-aurora span {
-    animation: none !important;
-  }
-  /* Tilt is motion too: flatten it entirely rather than merely shortening it. */
-  .clay-3d {
-    transform: none !important;
-    transition: none !important;
-  }
-  .clay-3d::after {
-    opacity: 0 !important;
-  }
-  .clay-extrude,
-  .clay-layer-1,
-  .clay-layer-2,
-  .clay-3d-btn {
-    transform: none !important;
-    transition: none !important;
-  }
-  .clay-ring::before,
-  .clay-flip,
   .clay-beating {
     animation: none !important;
   }
-  .clay-magnetic {
-    --mag-x: 0px !important;
-    --mag-y: 0px !important;
+  .clay-3d,
+  .clay-3d-btn {
+    transition: none !important;
   }
-  /* The ring still reads as a rim light when it is not spinning. */
-  .clay-ring::before {
-    background: linear-gradient(135deg, var(--clay-accent), var(--clay-accent-2));
-    opacity: 0.5;
+  .clay-3d:hover,
+  .clay-3d-btn:not(:disabled):hover {
+    transform: none;
+  }
+  /* The ticker stops and shows only its first copy; the duplicate is already
+     aria-hidden, so nothing is announced twice. */
+  .clay-marquee-track {
+    animation: none !important;
+  }
+  .clay-marquee-run:nth-child(2) {
+    display: none;
+  }
+  .clay-glitch,
+  .clay-stamp,
+  .clay-scanning,
+  .clay-caret::after {
+    animation: none !important;
+  }
+  .clay-scanning {
+    background-image: none;
   }
 }

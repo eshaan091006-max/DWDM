@@ -94,7 +94,7 @@ export function ClaySlider({
         className="w-full appearance-none h-3 cursor-pointer"
         style={{
           background: "var(--clay-surface-sunken)",
-          borderRadius: "999px",
+          borderRadius: 0,
           boxShadow: "var(--clay-shadow-sunken)",
           accentColor: "var(--clay-accent)",
         }}

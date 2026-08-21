@@ -48,10 +48,47 @@ describe("clay tokens", () => {
     }
   });
 
-  it("layers three shadows so surfaces read as clay", () => {
+  it("uses hard offset shadows with no blur", () => {
+    // Brutalism's material logic: a shadow is a displaced solid block, not a
+    // soft halo. `5px 5px 0` — the third length, the blur radius, must be zero.
     const shadow = css.match(/--clay-shadow:\s*([^;]+);/)?.[1] ?? "";
-    expect(shadow.match(/inset/g)?.length).toBeGreaterThanOrEqual(2);
-    expect(shadow).toMatch(/var\(--clay-drop\)/);
+    expect(shadow).toMatch(/^\d+px\s+\d+px\s+0\s/);
+    expect(shadow).not.toMatch(/inset/);
+  });
+
+  it("has square corners everywhere", () => {
+    for (const token of ["--clay-radius-sm", "--clay-radius", "--clay-radius-lg"]) {
+      const value = css.match(new RegExp(`${token}:\\s*([^;]+);`))?.[1]?.trim();
+      expect(value).toBe("0px");
+    }
+  });
+
+  it("declares a visible ink border, since structure is exposed not implied", () => {
+    const border = css.match(/--clay-border:\s*([^;]+);/)?.[1] ?? "";
+    expect(border).toMatch(/solid/);
+    expect(border).toMatch(/var\(--clay-ink\)/);
+  });
+
+  it("commits to monospace rather than a rounded humanist face", () => {
+    const mono = css.match(/--clay-font-mono:\s*([^;]+);/)?.[1] ?? "";
+    expect(mono).toMatch(/monospace/);
+  });
+
+  it("gives each algorithm one flat accent, never a gradient pair", () => {
+    for (const algo of ["dbscan", "birch", "cure"]) {
+      const block = css.slice(css.indexOf(`[data-algo="${algo}"]`));
+      const accent = block.match(/--clay-accent:\s*([^;]+);/)?.[1]?.trim();
+      const accent2 = block.match(/--clay-accent-2:\s*([^;]+);/)?.[1]?.trim();
+      expect(accent).toMatch(/^#[0-9a-f]{6}$/i);
+      // A single flat colour: the pair must match, so no gradient can form.
+      expect(accent2).toBe(accent);
+    }
+  });
+
+  it("stops the marquee under prefers-reduced-motion", () => {
+    const reduced = css.slice(css.indexOf("prefers-reduced-motion"));
+    expect(reduced).toMatch(/\.clay-marquee-track/);
+    expect(reduced).toMatch(/animation:\s*none/);
   });
 
   it("disables motion under prefers-reduced-motion", () => {

@@ -54,6 +54,9 @@ export function ClayCard({
       style={{
         background: tone === "sunken" ? "var(--clay-surface-sunken)" : "var(--clay-surface)",
         borderRadius: "var(--clay-radius-lg)",
+        // Every surface carries its border, not just the tilting ones. Structure
+        // is exposed here rather than implied by a shadow.
+        border: "var(--clay-border)",
         boxShadow: shadow,
         animationDelay: `${delay}ms`,
       }}

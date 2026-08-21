@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { ClayBadge, ClayButton, ClayCard } from "../../clay";
+import { ClayBadge, ClayButton, ClayCard, Marquee, Tick } from "../../clay";
 import { formatMetric, formatMs, formatParams } from "../../lib/format";
 import { labelsAt } from "../../lib/trace";
 import type { AlgorithmKey } from "../../lib/types";
@@ -103,6 +103,23 @@ export function AlgorithmSection({
         </div>
       </header>
 
+      {/* Each section carries its own ticker of that algorithm's live figures.
+          Alternating the direction stops the three reading as one long belt. */}
+      <Marquee
+        tone={isActive ? "accent" : "quiet"}
+        speed={24}
+        reverse={index % 2 === 0}
+        className="mb-4"
+      >
+        <Tick>{TITLE[algorithm]}</Tick>
+        <Tick>{caption || "not run yet"}</Tick>
+        {result && <Tick>{result.n_clusters} clusters</Tick>}
+        {result && <Tick>{result.n_noise} noise</Tick>}
+        {result && <Tick>silhouette {formatMetric(result.metrics.silhouette, 3)}</Tick>}
+        {result && <Tick>davies-bouldin {formatMetric(result.metrics.davies_bouldin, 3)}</Tick>}
+        <Tick>{TAGLINE[algorithm]}</Tick>
+      </Marquee>
+
       <div className="deck-body">
         <ClayCard
           accent={algorithm}
@@ -110,7 +127,7 @@ export function AlgorithmSection({
           subtitle={caption || undefined}
           glow={isActive}
           tilt={false}
-          className={isActive ? "clay-ring" : ""}
+          className={`${isActive ? "clay-ring" : ""} ${busy ? "clay-scanning" : ""}`}
         >
           <ScatterCanvas
             points={shownPoints}
@@ -142,7 +159,9 @@ export function AlgorithmSection({
 
           {isActive && currentStep && (
             <p
-              className="mt-4 text-sm font-bold leading-snug min-h-[2.6rem]"
+              // The blinking block cursor reads as a live terminal readout,
+              // which is exactly what the narration is.
+              className="mt-4 text-sm font-bold leading-snug min-h-[2.6rem] clay-caret"
               style={{ color: "var(--clay-text)" }}
               aria-live="polite"
             >

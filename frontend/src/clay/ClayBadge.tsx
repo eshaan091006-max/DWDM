@@ -17,7 +17,7 @@ export function ClayBadge({
   return (
     <span
       className="inline-block px-2.5 py-1 text-[11px] font-bold"
-      style={{ ...TONES[tone], borderRadius: "999px" }}
+      style={{ ...TONES[tone], borderRadius: 0 }}
     >
       {children}
     </span>

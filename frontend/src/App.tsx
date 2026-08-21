@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Aurora, ClayBadge, ClayButton, ClayCard, ClayTabs, ClayToggle } from "./clay";
+import {
+  Aurora,
+  ClayBadge,
+  ClayButton,
+  ClayCard,
+  ClayTabs,
+  ClayToggle,
+  Marquee,
+  Tick,
+} from "./clay";
 import { api } from "./lib/api";
 import { formatMetric, formatMs, formatParams } from "./lib/format";
 import { guardCureParams } from "./lib/cureGuard";
@@ -153,9 +162,8 @@ export default function App() {
       <header
         className="relative z-10 flex items-center gap-4 px-6 py-4 flex-wrap shrink-0"
         style={{
-          background: "color-mix(in srgb, var(--clay-surface) 72%, transparent)",
-          backdropFilter: "blur(14px)",
-          borderBottom: "1px solid color-mix(in srgb, var(--clay-accent) 14%, transparent)",
+          background: "var(--clay-surface)",
+          borderBottom: "var(--clay-border-thick)",
         }}
       >
         <div className="flex items-baseline gap-3">
@@ -201,6 +209,18 @@ export default function App() {
           </ClayButton>
         </div>
       </header>
+
+      {/* Status ticker. Everything on it is live state, so it doubles as a
+          readout rather than being decoration that happens to move. */}
+      <Marquee tone="ink" speed={30} className="relative z-10 shrink-0">
+        <Tick>DBSCAN · density reachability</Tick>
+        <Tick>BIRCH · clustering features</Tick>
+        <Tick>CURE · shrinking representatives</Tick>
+        <Tick>{points.length} points loaded</Tick>
+        <Tick>{store.datasetName}</Tick>
+        <Tick>{backendOk ? "backend online" : "backend offline"}</Tick>
+        <Tick>from-scratch implementations · no scikit-learn</Tick>
+      </Marquee>
 
       <main className="relative z-10 flex-1 min-h-0 px-6 pt-4">
         {!backendOk && (
@@ -313,7 +333,9 @@ export default function App() {
                       : "Nothing loaded yet"}
                   </p>
                 </div>
-                <div className="ml-auto flex items-center gap-2">
+                {/* shrink-0 stops these being squeezed by the heading beside
+                    them, which was clipping the second label at narrow widths. */}
+                <div className="ml-auto flex items-center gap-4 shrink-0">
                   <ClayToggle
                     label="Auto-run"
                     checked={autoRun}

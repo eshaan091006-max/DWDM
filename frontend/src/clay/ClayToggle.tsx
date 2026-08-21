@@ -10,7 +10,7 @@ export function ClayToggle({
   help?: string;
 }) {
   return (
-    <label className="flex items-center gap-3 mb-3 cursor-pointer" title={help}>
+    <label className="flex items-center gap-2 mb-3 cursor-pointer whitespace-nowrap" title={help}>
       <input
         aria-label={label}
         type="checkbox"
@@ -22,7 +22,7 @@ export function ClayToggle({
         className="relative inline-block w-11 h-6 shrink-0"
         style={{
           background: checked ? "var(--clay-accent)" : "var(--clay-surface-sunken)",
-          borderRadius: "999px",
+          borderRadius: 0,
           boxShadow: "var(--clay-shadow-sunken)",
           transition: "background var(--clay-fast) ease",
         }}
@@ -32,7 +32,7 @@ export function ClayToggle({
           style={{
             left: checked ? "26px" : "4px",
             background: "var(--clay-surface-raised)",
-            borderRadius: "999px",
+            borderRadius: 0,
             boxShadow: "0 2px 5px var(--clay-drop)",
             transition: "left var(--clay-fast) var(--clay-ease)",
           }}

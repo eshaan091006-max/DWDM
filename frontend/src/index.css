@@ -9,26 +9,23 @@ body,
 
 body {
   margin: 0;
-  /* Two soft radial washes tinted by the active algorithm, over the base. The
-     app shell owns scrolling, so the body itself never scrolls. */
-  background:
-    radial-gradient(
-      1200px 800px at 12% -10%,
-      color-mix(in srgb, var(--clay-accent) 12%, transparent),
-      transparent 60%
-    ),
-    radial-gradient(
-      1000px 700px at 105% 110%,
-      color-mix(in srgb, var(--clay-accent-2) 12%, transparent),
-      transparent 55%
-    ),
-    var(--clay-bg);
-  background-attachment: fixed;
+  /* Flat paper. No washes, no gradients — the grid overlay is the only texture. */
+  background: var(--clay-bg);
   color: var(--clay-text);
-  font-family: "Nunito", "Quicksand", ui-rounded, "Segoe UI", system-ui, sans-serif;
+  /* Monospace throughout. Brutalism does not reach for a friendly face, and the
+     numbers in this app — coordinates, epsilon, cluster counts — are easier to
+     compare when every glyph occupies the same width. */
+  font-family: var(--clay-font-mono);
+  font-size: 13px;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
-  transition: background var(--clay-slow) ease;
+}
+
+/* Labels and eyebrows are set as raw uppercase records, not soft captions. */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
 }
 
 /*
@@ -145,34 +142,38 @@ body {
   padding-bottom: 2rem;
 }
 
-/* Range inputs get the clay treatment on both engines. */
+/* Range inputs: a square accent slug on a ruled track. */
 input[type="range"] {
   appearance: none;
   -webkit-appearance: none;
+  border: var(--clay-border);
+  height: 20px;
 }
 input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
-  width: 18px;
+  width: 14px;
   height: 18px;
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--clay-accent);
-  border: 3px solid var(--clay-surface-raised);
-  box-shadow: 0 2px 8px var(--clay-glow);
+  border: 2px solid var(--clay-ink);
   cursor: pointer;
-  transition: transform var(--clay-fast) var(--clay-ease);
-}
-input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.18);
 }
 input[type="range"]::-moz-range-thumb {
   width: 14px;
-  height: 14px;
-  border-radius: 999px;
+  height: 18px;
+  border-radius: 0;
   background: var(--clay-accent);
-  border: 3px solid var(--clay-surface-raised);
-  box-shadow: 0 2px 8px var(--clay-glow);
+  border: 2px solid var(--clay-ink);
   cursor: pointer;
+}
+
+/* Number fields and selects match the block language. */
+input[type="number"],
+select {
+  border: var(--clay-border) !important;
+  border-radius: 0 !important;
+  font-family: var(--clay-font-mono);
 }
 
 ::selection {
