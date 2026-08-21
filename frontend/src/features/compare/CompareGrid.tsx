@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { ClayBadge, ClayButton, ClayCard } from "../../clay";
 import { api } from "../../lib/api";
+import { guardCureParams } from "../../lib/cureGuard";
 import { formatMetric, formatMs, formatParams } from "../../lib/format";
 import type { AlgorithmKey, ClusterResponse } from "../../lib/types";
 import { useAppStore } from "../../store/appStore";
@@ -27,7 +28,14 @@ export function CompareGrid() {
     try {
       const results = await api.compare({
         points,
-        configs: { dbscan: params.dbscan, birch: params.birch, cure: params.cure },
+        configs: {
+          dbscan: params.dbscan,
+          birch: params.birch,
+          // Same cubic-cost guard as the single-algorithm path. It matters more
+          // here: all three run back to back on a single-threaded backend, so an
+          // unsampled CURE holds up the whole comparison.
+          cure: guardCureParams(params.cure, points.length).params,
+        },
         standardize,
       });
       setCompareResults(results);

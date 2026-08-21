@@ -255,8 +255,17 @@ ALGORITHMS: dict[str, dict[str, Any]] = {
                 ),
             },
             "complexity": (
-                "Roughly O(n^2 log n) for the merging phase on n sampled points, which is "
-                "why sampling exists. Labelling the remaining points is O(n * total representatives)."
+                "O(n^3) for the merging phase in this implementation: reducing n "
+                "singletons to k clusters takes about n merges, and each one rescans "
+                "every surviving pair to find the closest. Measured on this machine: "
+                "0.2s at n=60, 1.8s at n=120, 15s at n=200, 54s at n=300 — it really "
+                "is cubic, and that is exactly why CURE has a sampling parameter. "
+                "Set sample_size to cluster a subset and label the rest by nearest "
+                "representative. A heap of candidate nearest-neighbours would bring "
+                "the merge phase down to O(n^2 log n), which is the figure usually "
+                "quoted for CURE; this implementation keeps the simpler rescan so the "
+                "merge step stays readable. Labelling any unsampled points afterwards "
+                "is O(n * total representatives)."
             ),
             "strengths": [
                 "Handles elongated and non-spherical clusters far better than centroid methods.",

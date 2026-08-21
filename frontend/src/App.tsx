@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Aurora, ClayBadge, ClayButton, ClayCard, ClayTabs, ClayToggle } from "./clay";
 import { api } from "./lib/api";
 import { formatParams } from "./lib/format";
+import { guardCureParams } from "./lib/cureGuard";
 import { labelsAt } from "./lib/trace";
 import type { AlgorithmKey } from "./lib/types";
 import { useAppStore } from "./store/appStore";
@@ -79,9 +80,16 @@ export default function App() {
     if (points.length === 0) return;
     store.setBusy(true);
     try {
+      // CURE's merge phase is cubic; above the threshold we fill in a sample
+      // size rather than let the UI block for a minute. The badge below says so.
+      const effective =
+        algorithm === "cure"
+          ? guardCureParams(params.cure, points.length).params
+          : params[algorithm];
+
       const result = await api.cluster(algorithm, {
         points,
-        params: params[algorithm],
+        params: effective,
         record_trace: recordTrace && points.length <= TRACE_LIMIT,
         standardize,
       });
