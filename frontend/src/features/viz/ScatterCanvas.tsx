@@ -79,19 +79,28 @@ export function ScatterCanvas({
 
       if (label < 0) {
         // Noise stays hollow so it reads as excluded, not as another cluster.
+        ctx.shadowBlur = 0;
         ctx.strokeStyle = NOISE_COLOR;
         ctx.lineWidth = 1.4;
         ctx.stroke();
       } else {
-        ctx.fillStyle = clusterColor(label);
+        const colour = clusterColor(label);
+        // A short glow in the point's own hue. It makes clusters read as lit
+        // rather than printed, and it reinforces cluster identity by colour
+        // even where points overlap.
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = colour;
+        ctx.fillStyle = colour;
         ctx.fill();
+        ctx.shadowBlur = 0;
         if (kind === "core") {
-          ctx.strokeStyle = "rgba(255,255,255,0.85)";
+          ctx.strokeStyle = "rgba(255,255,255,0.9)";
           ctx.lineWidth = 1.6;
           ctx.stroke();
         }
       }
     }
+    ctx.shadowBlur = 0;
 
     if (caption) {
       ctx.font = "600 11px ui-monospace, SFMono-Regular, Menlo, monospace";

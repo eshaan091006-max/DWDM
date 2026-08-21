@@ -6,27 +6,57 @@ export function ClayCard({
   subtitle,
   tone = "raised",
   className = "",
+  glow = false,
+  delay = 0,
+  accent,
 }: {
   children: ReactNode;
   title?: string;
   subtitle?: string;
   tone?: "raised" | "sunken";
   className?: string;
+  /** Adds an accent-tinted halo. Reserve it for the card that leads the view. */
+  glow?: boolean;
+  /** Stagger for the entrance animation, in milliseconds. */
+  delay?: number;
+  /** Small label above the title, e.g. a section marker. */
+  accent?: string;
 }) {
+  const shadow = glow
+    ? "var(--clay-shadow-glow)"
+    : tone === "sunken"
+      ? "var(--clay-shadow-sunken)"
+      : "var(--clay-shadow)";
+
   return (
     <section
-      className={`p-5 ${className}`}
+      className={`p-5 clay-rise ${className}`}
       style={{
         background: tone === "sunken" ? "var(--clay-surface-sunken)" : "var(--clay-surface)",
         borderRadius: "var(--clay-radius-lg)",
-        boxShadow: tone === "sunken" ? "var(--clay-shadow-sunken)" : "var(--clay-shadow)",
+        boxShadow: shadow,
+        animationDelay: `${delay}ms`,
+        transition: "box-shadow var(--clay-slow) ease, background var(--clay-slow) ease",
       }}
     >
-      {title && (
+      {(title || accent) && (
         <header className="mb-3">
-          <h2 className="text-base font-bold tracking-tight" style={{ color: "var(--clay-text)" }}>
-            {title}
-          </h2>
+          {accent && (
+            <div
+              className="text-[10px] font-black uppercase tracking-[0.18em] mb-1"
+              style={{ color: "var(--clay-accent)" }}
+            >
+              {accent}
+            </div>
+          )}
+          {title && (
+            <h2
+              className="text-base font-black tracking-tight"
+              style={{ color: "var(--clay-text)" }}
+            >
+              {title}
+            </h2>
+          )}
           {subtitle && (
             <p className="text-xs mt-0.5" style={{ color: "var(--clay-text-muted)" }}>
               {subtitle}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { ClayBadge, ClayButton, ClayCard, ClayTabs, ClayToggle } from "./clay";
+import { Aurora, ClayBadge, ClayButton, ClayCard, ClayTabs, ClayToggle } from "./clay";
 import { api } from "./lib/api";
 import { formatParams } from "./lib/format";
 import { labelsAt } from "./lib/trace";
@@ -30,6 +30,12 @@ const VIEW_TABS = [
   { id: "compare", label: "Compare" },
   { id: "theory", label: "Theory" },
 ];
+
+const TAGLINE: Record<AlgorithmKey, string> = {
+  dbscan: "density reachability",
+  birch: "clustering features",
+  cure: "shrinking representatives",
+};
 
 /** Above this many points a recorded trace is more payload than it is worth. */
 const TRACE_LIMIT = 800;
@@ -64,6 +70,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Retint the whole interface to the algorithm in focus.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-algo", algorithm);
+  }, [algorithm]);
+
   async function run() {
     if (points.length === 0) return;
     store.setBusy(true);
@@ -97,7 +108,8 @@ export default function App() {
 
   const result = results[algorithm] ?? null;
   const steps = useMemo(() => result?.trace.steps ?? [], [result]);
-  const currentStep = steps.length > 0 ? (steps[Math.min(playhead, steps.length - 1)] ?? null) : null;
+  const currentStep =
+    steps.length > 0 ? (steps[Math.min(playhead, steps.length - 1)] ?? null) : null;
 
   const shownPoints = result?.projection.points_2d ?? points;
   const shownLabels = useMemo(
@@ -118,144 +130,180 @@ export default function App() {
   const caption = result ? formatParams(result.params_used) : undefined;
   const traceSuppressed = recordTrace && points.length > TRACE_LIMIT;
 
+  const rail = "rail clay-scroll";
+
   return (
-    <div className="min-h-screen p-5" style={{ background: "var(--clay-bg)" }}>
-      <header className="flex items-center gap-3 mb-5 flex-wrap">
-        <h1 className="text-xl font-black tracking-tight" style={{ color: "var(--clay-text)" }}>
-          Clustering Explorer
-        </h1>
-        <ClayBadge tone={backendOk ? "good" : "warn"}>
-          {backendOk ? "backend connected" : "backend unreachable"}
-        </ClayBadge>
-        {busy && <ClayBadge tone="accent">working…</ClayBadge>}
-        <div className="ml-auto">
-          <ClayButton size="sm" onClick={store.toggleTheme}>
+    <div className="h-full flex flex-col relative" style={{ isolation: "isolate" }}>
+      <Aurora />
+
+      <header
+        className="relative z-10 flex items-center gap-4 px-6 py-4 flex-wrap shrink-0"
+        style={{
+          background: "color-mix(in srgb, var(--clay-surface) 72%, transparent)",
+          backdropFilter: "blur(14px)",
+          borderBottom: "1px solid color-mix(in srgb, var(--clay-accent) 14%, transparent)",
+        }}
+      >
+        <div className="flex items-baseline gap-3">
+          <h1 className="clay-display text-2xl font-black tracking-tighter">
+            Clustering&nbsp;Explorer
+          </h1>
+          <span
+            className="text-[11px] font-bold uppercase tracking-[0.16em] hidden sm:inline"
+            style={{ color: "var(--clay-accent)" }}
+          >
+            {TAGLINE[algorithm]}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <ClayBadge tone={backendOk ? "good" : "warn"}>
+            {backendOk ? "backend connected" : "backend unreachable"}
+          </ClayBadge>
+          {busy && <ClayBadge tone="accent">working…</ClayBadge>}
+          {points.length > 0 && <ClayBadge>{points.length} pts</ClayBadge>}
+        </div>
+
+        <div className="ml-auto flex items-center gap-3">
+          <div style={{ minWidth: 300 }}>
+            <ClayTabs tabs={VIEW_TABS} active={view} onChange={setView} />
+          </div>
+          <ClayButton size="sm" onClick={store.toggleTheme} title="Toggle light and dark">
             {theme === "light" ? "Dark" : "Light"}
           </ClayButton>
         </div>
       </header>
 
-      {!backendOk && (
-        <ClayCard className="mb-4">
-          <p className="text-xs leading-relaxed" style={{ color: "var(--clay-warn)" }}>
-            The backend is not responding. From the <code>backend</code> directory, run{" "}
-            <code>.venv\Scripts\python.exe -m uvicorn app.main:app --port 8000</code>
-          </p>
-        </ClayCard>
-      )}
+      <main className="relative z-10 flex-1 min-h-0 px-6 pt-4">
+        {!backendOk && (
+          <ClayCard className="mb-4">
+            <p className="text-xs leading-relaxed" style={{ color: "var(--clay-warn)" }}>
+              The backend is not responding. From the <code>backend</code> directory, run{" "}
+              <code>.venv\Scripts\python.exe -m uvicorn app.main:app --port 8000</code>
+            </p>
+          </ClayCard>
+        )}
 
-      {error && (
-        <ClayCard className="mb-4">
-          <p className="text-xs" style={{ color: "var(--clay-warn)" }}>
-            {error}
-          </p>
-        </ClayCard>
-      )}
+        {error && (
+          <ClayCard className="mb-4">
+            <p className="text-xs" style={{ color: "var(--clay-warn)" }}>
+              {error}
+            </p>
+          </ClayCard>
+        )}
 
-      <div className="mb-4" style={{ maxWidth: 420 }}>
-        <ClayTabs tabs={VIEW_TABS} active={view} onChange={setView} />
-      </div>
-
-      {view === "compare" ? (
-        <CompareGrid />
-      ) : view === "theory" ? (
-        <div
-          className="grid gap-4 items-start"
-          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}
-        >
-          <TheoryPanel algorithm="dbscan" />
-          <TheoryPanel algorithm="birch" />
-          <TheoryPanel algorithm="cure" />
-        </div>
-      ) : (
-        <div
-          className="grid gap-4 items-start"
-          style={{
-            gridTemplateColumns: "minmax(260px, 320px) minmax(0, 1fr) minmax(260px, 340px)",
-          }}
-        >
-          <div className="flex flex-col gap-4">
-            <DataPanel />
-            <ClayCard title="Parameters">
-              <div className="mb-4">
-                <ClayTabs
-                  tabs={ALGO_TABS}
-                  active={algorithm}
-                  onChange={(id) => store.setAlgorithm(id as AlgorithmKey)}
-                />
-              </div>
-              <ParamPanel algorithm={algorithm} />
-              <ClayToggle label="Auto-run on change" checked={autoRun} onChange={store.setAutoRun} />
-              <ClayToggle
-                label="Standardise features"
-                checked={standardize}
-                onChange={store.setStandardize}
-                help="Z-score each column. eps and threshold are scale-sensitive."
-              />
-              <ClayToggle
-                label="Record steps"
-                checked={recordTrace}
-                onChange={store.setRecordTrace}
-                help={`Suppressed automatically above ${TRACE_LIMIT} points.`}
-              />
-              {traceSuppressed && (
-                <p className="mb-3">
-                  <ClayBadge tone="warn">
-                    {points.length} points — trace suppressed for this run
-                  </ClayBadge>
-                </p>
-              )}
-              <ClayButton variant="primary" onClick={run} disabled={points.length === 0}>
-                Run {algorithm.toUpperCase()}
-              </ClayButton>
-            </ClayCard>
+        {view === "compare" ? (
+          <div className="full-scroll clay-scroll">
+            <CompareGrid />
           </div>
-
-          <div className="flex flex-col gap-4">
-            <ClayCard title="Visualisation">
-              <ScatterCanvas
-                points={shownPoints}
-                labels={shownLabels}
-                pointTypes={result?.extras.point_types as string[] | undefined}
-                overlay={overlay}
-                editable={featureNames.length === 2}
-                onAddPoint={(point) => store.addPoint(point)}
-                onMovePoint={(index, point) => store.movePoint(index, point)}
-                onRemovePoint={(index) => store.removePoint(index)}
-                caption={caption}
-              />
-              <div className="mt-4">
-                <TracePlayer
-                  steps={steps}
-                  truncated={result?.trace.truncated ?? false}
-                  sampleRate={result?.trace.sample_rate ?? 1}
+        ) : view === "theory" ? (
+          <div
+            className="full-scroll clay-scroll grid gap-4 items-start"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))" }}
+          >
+            <TheoryPanel algorithm="dbscan" />
+            <TheoryPanel algorithm="birch" />
+            <TheoryPanel algorithm="cure" />
+          </div>
+        ) : (
+          // Three rails that scroll independently, so the plot never leaves the
+          // viewport while you read metrics or scroll parameters.
+          <div className="explore-grid clay-scroll">
+            <div className={rail}>
+              <DataPanel />
+              <ClayCard title="Parameters" accent="tune" delay={60}>
+                <div className="mb-4">
+                  <ClayTabs
+                    tabs={ALGO_TABS}
+                    active={algorithm}
+                    onChange={(id) => store.setAlgorithm(id as AlgorithmKey)}
+                  />
+                </div>
+                <ParamPanel algorithm={algorithm} />
+                <ClayToggle
+                  label="Auto-run on change"
+                  checked={autoRun}
+                  onChange={store.setAutoRun}
                 />
-              </div>
-            </ClayCard>
-
-            {algorithm === "birch" && (
-              <ClayCard
-                title="CF-tree"
-                subtitle="Highlighted nodes are on the current insertion path"
-              >
-                <CFTreeView
-                  tree={treeFromStep ?? finalTree}
-                  highlightPath={(currentStep?.payload.path as number[] | undefined) ?? []}
-                  splitNodes={(currentStep?.payload.split_nodes as number[] | undefined) ?? []}
+                <ClayToggle
+                  label="Standardise features"
+                  checked={standardize}
+                  onChange={store.setStandardize}
+                  help="Z-score each column. eps and threshold are scale-sensitive."
                 />
+                <ClayToggle
+                  label="Record steps"
+                  checked={recordTrace}
+                  onChange={store.setRecordTrace}
+                  help={`Suppressed automatically above ${TRACE_LIMIT} points.`}
+                />
+                {traceSuppressed && (
+                  <p className="mb-3">
+                    <ClayBadge tone="warn">
+                      {points.length} points — trace suppressed for this run
+                    </ClayBadge>
+                  </p>
+                )}
+                <ClayButton variant="primary" onClick={run} disabled={points.length === 0}>
+                  Run {algorithm.toUpperCase()}
+                </ClayButton>
               </ClayCard>
-            )}
-          </div>
+            </div>
 
-          <div className="flex flex-col gap-4">
-            <MetricsPanel result={result} />
-            <NarrationLog steps={steps} playhead={playhead} />
-            <ClayCard title="Export">
-              <ExportBar result={result} />
-            </ClayCard>
+            <div className={rail}>
+              <ClayCard
+                title="Visualisation"
+                accent={algorithm}
+                subtitle={caption || undefined}
+                glow
+              >
+                <ScatterCanvas
+                  points={shownPoints}
+                  labels={shownLabels}
+                  pointTypes={result?.extras.point_types as string[] | undefined}
+                  overlay={overlay}
+                  editable={featureNames.length === 2}
+                  onAddPoint={(point) => store.addPoint(point)}
+                  onMovePoint={(index, point) => store.movePoint(index, point)}
+                  onRemovePoint={(index) => store.removePoint(index)}
+                  caption={caption}
+                  height={560}
+                />
+                <div className="mt-4">
+                  <TracePlayer
+                    steps={steps}
+                    truncated={result?.trace.truncated ?? false}
+                    sampleRate={result?.trace.sample_rate ?? 1}
+                  />
+                </div>
+              </ClayCard>
+
+              {algorithm === "birch" && (
+                <ClayCard
+                  title="CF-tree"
+                  accent="structure"
+                  subtitle="Highlighted nodes are on the current insertion path"
+                  delay={100}
+                >
+                  <CFTreeView
+                    tree={treeFromStep ?? finalTree}
+                    highlightPath={(currentStep?.payload.path as number[] | undefined) ?? []}
+                    splitNodes={(currentStep?.payload.split_nodes as number[] | undefined) ?? []}
+                  />
+                </ClayCard>
+              )}
+            </div>
+
+            <div className={rail}>
+              <MetricsPanel result={result} />
+              <NarrationLog steps={steps} playhead={playhead} />
+              <ClayCard title="Export" accent="save" delay={140}>
+                <ExportBar result={result} />
+              </ClayCard>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </main>
     </div>
   );
 }
