@@ -131,15 +131,46 @@ export function useInView<T extends HTMLElement>(rootMargin = "200px") {
 
   useEffect(() => {
     const node = ref.current;
-    if (!node || seen || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setSeen(true);
-      },
-      { rootMargin },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
+    if (!node || seen) return;
+
+    let observer: IntersectionObserver | null = null;
+    let heard = false;
+
+    if (typeof IntersectionObserver !== "undefined") {
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          heard = true;
+          if (entry.isIntersecting) setSeen(true);
+        },
+        { rootMargin },
+      );
+      observer.observe(node);
+    }
+
+    /*
+     * Backstop for environments where IntersectionObserver exists but never
+     * delivers a callback — a non-compositing or headless renderer, where the
+     * observer depends on a paint pipeline that is not running. Observed in
+     * practice: an element sitting mid-viewport was never reported, and scroll
+     * events were not dispatched either, so a geometry-on-scroll fallback would
+     * have been just as silent.
+     *
+     * A healthy browser always delivers one callback immediately on `observe`,
+     * intersecting or not, so silence shortly after mount is a reliable signal
+     * that the API is present but non-functional. In that case give up on
+     * laziness and mark the element seen: eager work is a real cost, but it is
+     * far better than the alternative, where the section never runs its
+     * algorithm and — with the reveal transition active — never becomes
+     * visible either.
+     */
+    const fallbackTimer = window.setTimeout(() => {
+      if (!heard) setSeen(true);
+    }, 1200);
+
+    return () => {
+      observer?.disconnect();
+      clearTimeout(fallbackTimer);
+    };
   }, [seen, rootMargin]);
 
   return { ref, seen };
