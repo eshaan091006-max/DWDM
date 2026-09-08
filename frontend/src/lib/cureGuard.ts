@@ -14,7 +14,19 @@
  * it has done so, because a result quietly computed on a subset is not the
  * result the user asked for.
  */
-export const CURE_SAMPLE_THRESHOLD = 150;
+/*
+ * The cap is lower in production because the deployed backend is a serverless
+ * function with a hard execution limit, and CURE's cubic merge phase runs
+ * straight into it. Measured on a 400-point input:
+ *
+ *   sample 100 -> 2.31 s      sample 120 -> 3.85 s      sample 150 -> 8.41 s
+ *
+ * Against Vercel's 10 s ceiling, 150 leaves 1.2x headroom on a machine faster
+ * than the serverless CPU — it would time out. 100 leaves 4.3x, which survives
+ * a cold start. Locally there is no such ceiling, so development keeps the
+ * larger sample and the better clustering that comes with it.
+ */
+export const CURE_SAMPLE_THRESHOLD = import.meta.env.PROD ? 100 : 150;
 
 export interface CureGuardResult {
   params: Record<string, unknown>;

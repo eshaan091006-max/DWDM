@@ -11,3 +11,6 @@ dist/
 
 # Office lock/owner files (~$Foo.pptx) — created while a document is open
 ~$*
+
+# Vercel
+.vercel/

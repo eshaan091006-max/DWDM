@@ -1,0 +1,7 @@
+# Runtime dependencies for the Vercel Python function (api/index.py).
+# uvicorn is deliberately omitted: Vercel supplies the ASGI server, and numpy
+# already makes this bundle large.
+fastapi>=0.115
+numpy>=2.1
+pydantic>=2.9
+python-multipart>=0.0.9
